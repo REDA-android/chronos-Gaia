@@ -28,6 +28,13 @@ import LiveAudio from './components/LiveAudio';
 import Timeline from './components/Timeline';
 import Onboarding from './components/Onboarding';
 import AppFlow from './components/AppFlow';
+import NeuralPulse from './components/NeuralPulse';
+import ScanOverlay from './components/ScanOverlay';
+import GrowthChart from './components/GrowthChart';
+import TelemetryChart from './components/TelemetryChart';
+import NeuralTerminal from './components/NeuralTerminal';
+import NeuralCore from './components/NeuralCore';
+import confetti from 'canvas-confetti';
 import { CapturedImage, MonitorSettings, ChatMessage, UserProfile } from './types';
 import { 
   analyzeImage, 
@@ -88,6 +95,14 @@ const App: React.FC = () => {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [active, setActive] = useState(false);
   const [appFlowMode, setAppFlowMode] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [systemLogs, setSystemLogs] = useState<string[]>([
+    "System initialized.",
+    "Neural link established.",
+    "Gaia core online.",
+    "Awaiting botanical telemetry..."
+  ]);
+  const [connectionStatus, setConnectionStatus] = useState<'STABLE' | 'SYNCING' | 'ERROR'>('STABLE');
   const [isCameraEnabled, setIsCameraEnabled] = useState(true);
   const [images, setImages] = useState<CapturedImage[]>([]);
   const [settings, setSettings] = useState<MonitorSettings>({
@@ -113,6 +128,7 @@ const App: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [location, setLocation] = useState<{lat: number, lng: number} | undefined>(undefined);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [flash, setFlash] = useState(false);
@@ -263,6 +279,15 @@ const App: React.FC = () => {
             } else {
               setImages(prev => prev.map(img => img.id === newImage.id ? { ...img, analysis, ...metadata } : img));
             }
+
+            if (metadata.healthStatus === 'HEALTHY') {
+              confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#84cc16', '#22d3ee', '#ffffff']
+              });
+            }
           } catch (e: any) { 
             console.error(e);
             setGlobalError(e.message || "Neural analysis failed.");
@@ -399,6 +424,32 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSpeak = async (text: string, messageId: string) => {
+    if (speakingMessageId === messageId) {
+      setSpeakingMessageId(null);
+      return;
+    }
+    
+    try {
+      setSpeakingMessageId(messageId);
+      const base64Audio = await generateSpeech(text);
+      if (base64Audio) {
+        const audioBytes = decodeAudio(base64Audio);
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioContextClass({ sampleRate: 24000 });
+        const buffer = await decodeAudioData(audioBytes, ctx);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.onended = () => setSpeakingMessageId(null);
+        source.start(0);
+      }
+    } catch (error) {
+      console.error("Speech Error:", error);
+      setSpeakingMessageId(null);
+    }
+  };
+
   if (!isAuthReady) {
     return (
       <div className="min-h-screen bg-cyber-900 flex items-center justify-center">
@@ -444,7 +495,18 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-cyber-900 text-gray-200 font-sans flex flex-col selection:bg-cyber-accent selection:text-black">
+    <div className="min-h-screen bg-cyber-900 text-gray-200 font-sans flex flex-col selection:bg-cyber-accent selection:text-black relative overflow-hidden">
+      <NeuralPulse />
+      
+      {/* Neural Link Status Bar */}
+      <div className="h-1 w-full bg-cyber-accent/10 relative overflow-hidden z-[100]">
+        <motion.div 
+          animate={{ x: ['-100%', '100%'] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+          className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-cyber-accent to-transparent opacity-50"
+        />
+      </div>
+
       {/* Global Error Toast */}
       {globalError && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[150] animate-in slide-in-from-top duration-300">
@@ -485,6 +547,10 @@ const App: React.FC = () => {
           <h1 className="font-mono font-bold tracking-tighter text-lg bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">CHRONOS <span className="text-cyber-accent">GAIA</span></h1>
         </div>
         <div className="flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-cyber-accent/5 border border-cyber-accent/20 rounded-full">
+            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${connectionStatus === 'STABLE' ? 'bg-cyber-accent' : connectionStatus === 'SYNCING' ? 'bg-blue-400' : 'bg-red-500'}`} />
+            <span className="text-[9px] font-mono text-gray-400 uppercase tracking-widest">Link: {connectionStatus}</span>
+          </div>
           <div className="hidden sm:flex flex-col items-end">
             <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest">{user.displayName || 'Neural Entity'}</span>
             <button onClick={handleLogout} className="text-[8px] font-mono text-cyber-accent hover:text-white uppercase tracking-widest">Disconnect</button>
@@ -524,29 +590,116 @@ const App: React.FC = () => {
       <div className="flex-1 flex overflow-hidden">
         {appFlowMode ? (
           <div className="flex-1 p-6">
-            <AppFlow />
+            <AppFlow images={images} />
           </div>
         ) : (
-          <>
-            {/* Main Feed and Timeline */}
-            <main className="flex-1 p-6 space-y-6 overflow-y-auto custom-scrollbar">
-          <div className="grid lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-8 space-y-6">
-              <div className="aspect-video bg-black rounded-xl overflow-hidden border border-cyber-700/50 relative shadow-2xl group ring-1 ring-white/5">
-                {/* Visual Flash Effect */}
-                <div className={`absolute inset-0 bg-white z-[60] pointer-events-none transition-opacity duration-200 ease-out ${flash ? 'opacity-80' : 'opacity-0'}`}></div>
+          <main className="flex-1 p-6 space-y-6 overflow-y-auto custom-scrollbar">
+            {/* Neural Dashboard Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="md:col-span-1 bg-black/40 backdrop-blur-md border border-white/5 p-4 rounded-2xl flex items-center justify-center group hover:border-cyber-accent/30 transition-all">
+                <NeuralCore active={active} processing={isProcessing} speaking={!!speakingMessageId} />
+              </div>
+              <div className="bg-black/40 backdrop-blur-md border border-white/5 p-4 rounded-2xl flex flex-col gap-4 group hover:border-cyber-accent/30 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-cyber-accent/10 rounded-xl text-cyber-accent">
+                    <Activity size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Neural Health</p>
+                    <p className={`text-lg font-bold tracking-tight ${images[images.length-1]?.healthStatus === 'HEALTHY' ? 'text-cyber-accent' : 'text-cyber-warn'}`}>
+                      {images[images.length-1]?.healthStatus || 'AWAITING DATA'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex-1">
+                   <div className="flex justify-between text-[9px] font-mono text-gray-600 mb-1">
+                     <span>STABILITY</span>
+                     <span>98.2%</span>
+                   </div>
+                   <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                     <motion.div 
+                       initial={{ width: 0 }}
+                       animate={{ width: '98.2%' }}
+                       className="h-full bg-cyber-accent"
+                     />
+                   </div>
+                </div>
+              </div>
+              <div className="bg-black/40 backdrop-blur-md border border-white/5 p-4 rounded-2xl flex flex-col gap-4 group hover:border-cyber-accent/30 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-blue-500/10 rounded-xl text-blue-400">
+                    <Sprout size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Growth Stage</p>
+                    <p className="text-lg font-bold tracking-tight text-white uppercase">
+                      {images[images.length-1]?.growthStage || 'INITIALIZING'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex-1">
+                   <div className="flex justify-between text-[9px] font-mono text-gray-600 mb-1">
+                     <span>PROGRESSION</span>
+                     <span>{images.length > 0 ? `${Math.min(100, images.length * 10)}%` : '0%'}</span>
+                   </div>
+                   <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                     <motion.div 
+                       initial={{ width: 0 }}
+                       animate={{ width: images.length > 0 ? `${Math.min(100, images.length * 10)}%` : '0%' }}
+                       className="h-full bg-blue-400"
+                     />
+                   </div>
+                </div>
+              </div>
+              <div className="bg-black/40 backdrop-blur-md border border-white/5 p-4 rounded-2xl flex flex-col gap-4 group hover:border-cyber-accent/30 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-purple-500/10 rounded-xl text-purple-400">
+                    <Zap size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Confidence</p>
+                    <p className="text-lg font-bold tracking-tight text-white">
+                      {images[images.length-1]?.confidence ? `${images[images.length-1].confidence}%` : '0%'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex-1">
+                   <div className="flex justify-between text-[9px] font-mono text-gray-600 mb-1">
+                     <span>AI_PRECISION</span>
+                     <span>{images[images.length-1]?.confidence || 0}%</span>
+                   </div>
+                   <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                     <motion.div 
+                       initial={{ width: 0 }}
+                       animate={{ width: `${images[images.length-1]?.confidence || 0}%` }}
+                       className="h-full bg-purple-400"
+                     />
+                   </div>
+                </div>
+              </div>
+            </div>
 
-                {playbackMode && selectedImage ? (
-                  <img src={selectedImage.dataUrl} className="w-full h-full object-contain" alt="Selected Frame" />
-                ) : (
-                  <CameraFeed 
-                    ref={cameraRef} 
-                    active={isCameraEnabled && !liveMode} 
-                    facingMode={settings.facingMode} 
-                    resolution={settings.resolution}
-                    onResolutionChange={(res) => setSettings({...settings, resolution: res})}
-                  />
-                )}
+            <div className="grid lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8 space-y-6">
+                <div className="aspect-video bg-black rounded-xl overflow-hidden border border-cyber-700/50 relative shadow-2xl group ring-1 ring-white/5">
+                  {/* Visual Flash Effect */}
+                  <div className={`absolute inset-0 bg-white z-[60] pointer-events-none transition-opacity duration-200 ease-out ${flash ? 'opacity-80' : 'opacity-0'}`}></div>
+
+                  {playbackMode && selectedImage ? (
+                    <img src={selectedImage.dataUrl} className="w-full h-full object-contain" alt="Selected Frame" />
+                  ) : (
+                    <>
+                      <CameraFeed 
+                        ref={cameraRef} 
+                        active={isCameraEnabled && !liveMode} 
+                        facingMode={settings.facingMode} 
+                        resolution={settings.resolution}
+                        onResolutionChange={(res) => setSettings({...settings, resolution: res})}
+                      />
+                      {active && <ScanOverlay />}
+                      {scanning && <ScanOverlay />}
+                    </>
+                  )}
                 
                 {/* Bottom Left Feed Controls */}
                 <div className="absolute bottom-6 left-6 flex gap-3 pointer-events-auto">
@@ -574,7 +727,29 @@ const App: React.FC = () => {
                   >
                     <Power size={20}/>
                   </button>
-                  {/* Replaced Stealth Mode with Snapshot Button */}
+                  {/* Snapshot Button / Neural Scan */}
+                  <button 
+                    onClick={() => {
+                      setScanning(true);
+                      setConnectionStatus('SYNCING');
+                      setSystemLogs(prev => [...prev, "Initiating deep neural scan...", "Analyzing botanical structure...", "Syncing with Gaia network..."]);
+                      setTimeout(() => {
+                        setScanning(true); // Keep scanning overlay for a bit
+                        setSystemLogs(prev => [...prev, "Extracting biometric markers...", "Calculating growth probability..."]);
+                      }, 1500);
+                      setTimeout(() => {
+                        setScanning(false);
+                        setConnectionStatus('STABLE');
+                        setSystemLogs(prev => [...prev, "Scan complete. Data uploaded to neural core."]);
+                        handleManualCapture();
+                      }, 4000);
+                    }} 
+                    disabled={scanning}
+                    className={`p-3 border rounded-full transition-all shadow-lg backdrop-blur-md group ${scanning ? 'bg-cyber-accent text-black border-cyber-accent animate-pulse' : 'bg-white/5 border-white/10 text-white hover:bg-cyber-accent hover:text-black'}`}
+                    title="Neural Scan"
+                  >
+                    <Zap size={20} className={scanning ? 'animate-spin' : 'group-hover:scale-110 transition-transform duration-200'}/>
+                  </button>
                   <button 
                     onClick={handleManualCapture} 
                     className="p-3 bg-white/5 border border-white/10 text-white rounded-full hover:bg-cyber-accent hover:text-black transition-all shadow-lg backdrop-blur-md group"
@@ -601,6 +776,22 @@ const App: React.FC = () => {
                 </div>
                 <Timeline images={images} onSelect={(img) => { setPlaybackMode(false); setSelectedImage(img); }} />
               </div>
+
+              {/* Telemetry and Logs */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-black/40 backdrop-blur-md border border-white/5 p-5 rounded-2xl">
+                  <h3 className="text-[10px] font-mono text-gray-500 mb-4 uppercase tracking-widest flex items-center gap-2">
+                    <Radio size={12} className="text-cyber-accent"/> Neural Telemetry (Confidence %)
+                  </h3>
+                  <TelemetryChart images={images} />
+                </div>
+                <div className="bg-black/40 backdrop-blur-md border border-white/5 p-5 rounded-2xl">
+                  <h3 className="text-[10px] font-mono text-gray-500 mb-4 uppercase tracking-widest flex items-center gap-2">
+                    <Terminal size={12} className="text-cyber-accent"/> System Log Stream
+                  </h3>
+                  <NeuralTerminal messages={systemLogs} />
+                </div>
+              </div>
             </div>
 
             {/* AI Console Sidebar - Mid-page layout */}
@@ -625,6 +816,19 @@ const App: React.FC = () => {
                   {chatMessages.map(m => (
                     <div key={m.id} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
                       <div className={`p-3.5 rounded-xl text-xs sm:text-sm max-w-[95%] shadow-sm ${m.role === 'user' ? 'bg-cyber-700/80 text-white border border-cyber-accent/20' : 'bg-black/50 border border-white/5 text-gray-300'}`}>
+                        <div className="flex justify-between items-start gap-4 mb-2">
+                          <span className={`text-[9px] font-mono uppercase tracking-widest ${m.role === 'user' ? 'text-cyber-accent' : 'text-blue-400'}`}>
+                            {m.role === 'user' ? 'Neural Entity' : 'Gaia Core'}
+                          </span>
+                          {m.role === 'model' && (
+                            <button 
+                              onClick={() => handleSpeak(m.text, m.id)}
+                              className={`p-1 rounded hover:bg-white/5 transition-colors ${speakingMessageId === m.id ? 'text-cyber-accent' : 'text-gray-500'}`}
+                            >
+                              <Volume2 size={14} className={speakingMessageId === m.id ? 'animate-pulse' : ''} />
+                            </button>
+                          )}
+                        </div>
                         <div className="markdown-body">
                           <Markdown>{m.text}</Markdown>
                         </div>
@@ -647,7 +851,7 @@ const App: React.FC = () => {
                   ))}
                   {isProcessing && (
                     <div className="flex items-center gap-2 text-[10px] font-mono text-cyber-accent/60 animate-pulse bg-cyber-accent/5 px-3 py-1.5 rounded-full border border-cyber-accent/10">
-                      <Cpu size={12} className="animate-spin" /> Neural Processing Engine Running...
+                      <Cpu size={12} className="animate-spin" /> {useThinking ? 'Deep Neural Processing Engine Running...' : 'Neural Processing Engine Running...'}
                     </div>
                   )}
                 </div>
@@ -703,8 +907,7 @@ const App: React.FC = () => {
             </div>
           </div>
         </main>
-          </>
-        )}
+      )}
 
         {/* System Config Sidebar - Styled exactly as requested */}
         <AnimatePresence>
@@ -722,6 +925,14 @@ const App: React.FC = () => {
               </div>
 
             <div className="space-y-10">
+              {/* Neural Analytics Section */}
+              <section className="space-y-4">
+                <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2 font-bold"><Activity size={12}/> Neural Analytics</label>
+                <div className="bg-black/40 rounded-xl border border-white/5 p-4 overflow-hidden">
+                  <GrowthChart images={images} />
+                </div>
+              </section>
+
               {/* Plant Identity Section */}
               <section className="space-y-4">
                 <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2 font-bold"><Leaf size={12}/> Plant Identity</label>

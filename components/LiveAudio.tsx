@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { connectToLiveAPI, createPcmBlob, decodeAudio, decodeAudioData, blobToBase64 } from '../services/geminiService';
 import { Mic, MicOff, Activity, X, Video, Camera, SwitchCamera, MessageSquare } from 'lucide-react';
 
@@ -238,6 +239,16 @@ const LiveAudio: React.FC<LiveAudioProps> = ({ onClose, onCapture, onTranscript 
                     </span>
                 </div>
              </div>
+             {isConnected && (
+               <motion.div 
+                 animate={{ opacity: [0.2, 1, 0.2] }}
+                 transition={{ duration: 2, repeat: Infinity }}
+                 className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1 bg-cyber-accent/10 border border-cyber-accent/30 rounded-full"
+               >
+                 <Activity size={12} className="text-cyber-accent" />
+                 <span className="text-[8px] font-mono text-cyber-accent uppercase tracking-[0.3em]">Neural_Sync_Active</span>
+               </motion.div>
+             )}
              <button onClick={onClose} className="p-2 bg-black/50 rounded-full text-white hover:bg-red-500/20 hover:text-red-500 transition-colors border border-gray-700">
                  <X size={24} />
              </button>
