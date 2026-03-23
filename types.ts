@@ -1,5 +1,6 @@
 export interface CapturedImage {
   id: string;
+  uid: string;
   timestamp: number;
   dataUrl: string;
   analysis?: string;
@@ -8,6 +9,15 @@ export interface CapturedImage {
   eventTags?: string[];
   healthStatus?: 'HEALTHY' | 'STRESSED' | 'CRITICAL';
   advice?: string;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName?: string;
+  plantType?: string;
+  hasCompletedOnboarding?: boolean;
+  settings?: MonitorSettings;
 }
 
 export enum AppMode {
@@ -24,6 +34,7 @@ export interface ChatMessage {
   timestamp: number;
   isThinking?: boolean;
   groundingUrls?: Array<{ title?: string; uri: string }>;
+  imageUrl?: string;
 }
 
 export interface MonitorSettings {
@@ -36,4 +47,6 @@ export interface MonitorSettings {
   timestampPrecision: 'date' | 'time' | 'both';
   minConfidenceThreshold: number;
   autoAdvance: boolean;
+  plantType?: string;
+  hasCompletedOnboarding?: boolean;
 }

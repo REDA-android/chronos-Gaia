@@ -1,0 +1,7 @@
+{
+  "name": "Chronos Gaia",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react"
+}

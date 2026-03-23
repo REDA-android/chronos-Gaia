@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user-specific settings and profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "plantType": { "type": "string", "description": "The species of plant being monitored" },
+        "hasCompletedOnboarding": { "type": "boolean" },
+        "settings": { "type": "object", "description": "User monitoring settings" }
+      },
+      "required": ["uid", "email"]
+    },
+    "CapturedImage": {
+      "title": "Captured Image",
+      "description": "A snapshot of the plant with analysis results.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string", "description": "Owner UID" },
+        "timestamp": { "type": "number" },
+        "dataUrl": { "type": "string", "description": "Base64 image data" },
+        "analysis": { "type": "string" },
+        "confidence": { "type": "number" },
+        "growthStage": { "type": "string" },
+        "healthStatus": { "type": "string", "enum": ["HEALTHY", "STRESSED", "CRITICAL"] },
+        "advice": { "type": "string" }
+      },
+      "required": ["id", "uid", "timestamp", "dataUrl"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    },
+    "/users/{uid}/snapshots/{snapshotId}": {
+      "schema": "CapturedImage",
+      "description": "Plant snapshots for a specific user"
+    }
+  }
+}

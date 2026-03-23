@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
+         (request.auth.token.email == "relkrouchni@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.uid is string &&
+             data.email is string &&
+             data.email.size() < 100;
+    }
+
+    function isValidSnapshot(data) {
+      return data.keys().hasAll(['id', 'uid', 'timestamp', 'dataUrl']) &&
+             data.id is string &&
+             data.uid == request.auth.uid &&
+             data.timestamp is number &&
+             data.dataUrl is string &&
+             data.dataUrl.size() < 2000000; // Limit for base64
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isAuthenticated() && uid == request.auth.uid && 
+                      request.resource.data.keys().hasAll(['uid', 'email']) &&
+                      isValidUser(request.resource.data);
+      allow update: if isOwner(uid) && 
+                      request.resource.data.keys().hasAll(['uid', 'email']) &&
+                      isValidUser(request.resource.data) && 
+                      request.resource.data.uid == resource.data.uid;
+      
+      match /snapshots/{snapshotId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isOwner(uid) && isValidSnapshot(request.resource.data);
+        allow update: if isOwner(uid) && isValidSnapshot(request.resource.data) && request.resource.data.id == resource.data.id;
+        allow delete: if isOwner(uid);
+      }
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

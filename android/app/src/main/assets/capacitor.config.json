@@ -1,0 +1,6 @@
+{
+	"appId": "com.chronos.gaia",
+	"appName": "Chronos Gaia",
+	"webDir": "dist",
+	"bundledWebRuntime": false
+}

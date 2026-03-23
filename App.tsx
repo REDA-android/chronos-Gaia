@@ -1,8 +1,34 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import Markdown from 'react-markdown';
+import { 
+  auth, 
+  db, 
+  googleProvider, 
+  signInWithPopup, 
+  signOut, 
+  onAuthStateChanged 
+} from './firebase';
+import { 
+  collection, 
+  addDoc, 
+  setDoc, 
+  getDocs, 
+  query, 
+  where, 
+  onSnapshot, 
+  doc, 
+  getDoc,
+  orderBy,
+  limit,
+  Timestamp
+} from 'firebase/firestore';
 import CameraFeed, { CameraHandle } from './components/CameraFeed';
 import LiveAudio from './components/LiveAudio';
 import Timeline from './components/Timeline';
-import { CapturedImage, MonitorSettings, ChatMessage } from './types';
+import Onboarding from './components/Onboarding';
+import AppFlow from './components/AppFlow';
+import { CapturedImage, MonitorSettings, ChatMessage, UserProfile } from './types';
 import { 
   analyzeImage, 
   sendMessage, 
@@ -10,7 +36,8 @@ import {
   getFastResponse, 
   generateGrowthReport,
   decodeAudio,
-  decodeAudioData
+  decodeAudioData,
+  generateImage
 } from './services/geminiService';
 import { 
   Leaf, 
@@ -57,7 +84,10 @@ import {
 } from 'lucide-react';
 
 const App: React.FC = () => {
+  const [user, setUser] = useState<any>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [active, setActive] = useState(false);
+  const [appFlowMode, setAppFlowMode] = useState(false);
   const [isCameraEnabled, setIsCameraEnabled] = useState(true);
   const [images, setImages] = useState<CapturedImage[]>([]);
   const [settings, setSettings] = useState<MonitorSettings>({
@@ -69,8 +99,12 @@ const App: React.FC = () => {
     playbackFps: 1,
     timestampPrecision: 'both',
     minConfidenceThreshold: 70,
-    autoAdvance: true
+    autoAdvance: true,
+    plantType: '',
+    hasCompletedOnboarding: false
   });
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [selectedImage, setSelectedImage] = useState<CapturedImage | null>(null);
   const [liveMode, setLiveMode] = useState(false);
   const [playbackMode, setPlaybackMode] = useState(false);
@@ -83,10 +117,76 @@ const App: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [flash, setFlash] = useState(false);
 
+  // Chat Options
+  const [useThinking, setUseThinking] = useState(false);
+  const [useSearch, setUseSearch] = useState(false);
+  const [useMaps, setUseMaps] = useState(false);
+
   const cameraRef = useRef<CameraHandle>(null);
   const intervalRef = useRef<any>(null);
   const playbackRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      setIsAuthReady(true);
+      if (u) {
+        // Load user profile and settings
+        const userDoc = await getDoc(doc(db, 'users', u.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data() as UserProfile;
+          if (data.settings) setSettings(data.settings);
+          if (data.hasCompletedOnboarding !== undefined) {
+            if (!data.hasCompletedOnboarding) setShowOnboarding(true);
+          }
+        } else {
+          // Create initial profile
+          await setDoc(doc(db, 'users', u.uid), {
+            uid: u.uid,
+            email: u.email || '',
+            displayName: u.displayName || '',
+            hasCompletedOnboarding: false,
+            settings: settings
+          });
+          setShowOnboarding(true);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const q = query(
+        collection(db, 'users', user.uid, 'snapshots'),
+        orderBy('timestamp', 'desc'),
+        limit(50)
+      );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const loadedImages = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as CapturedImage[];
+        setImages(loadedImages.reverse());
+      }, (error) => {
+        console.error("Firestore Error: ", error);
+        setGlobalError("Failed to sync snapshots.");
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user && isAuthReady) {
+      setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid,
+        email: user.email || '',
+        settings: settings,
+        hasCompletedOnboarding: true // Assuming if they are using the app, they've seen it or skipped it
+      }, { merge: true }).catch(e => console.error("Failed to sync settings:", e));
+    }
+  }, [settings, user, isAuthReady]);
 
   useEffect(() => {
     timerRef.current = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -123,15 +223,51 @@ const App: React.FC = () => {
     if (cameraRef.current) {
       const dataUrl = cameraRef.current.capture();
       if (dataUrl) {
-        const newImage: CapturedImage = { id: Date.now().toString(), timestamp: Date.now(), dataUrl };
-        setImages(prev => [...prev, newImage]);
+        const newImage: CapturedImage = { 
+          id: Date.now().toString(), 
+          uid: user?.uid || 'anonymous',
+          timestamp: Date.now(), 
+          dataUrl 
+        };
+        
+        if (user) {
+          try {
+            await addDoc(collection(db, 'users', user.uid, 'snapshots'), newImage);
+          } catch (e: any) {
+            console.error("Failed to save snapshot to Firestore:", e);
+          }
+        } else {
+          setImages(prev => [...prev, newImage]);
+        }
+
         if (settings.autoAnalyze) {
           try {
             const prompt = `Analyze plant snapshot. [HEALTH: STATUS][STAGE: stage][TAGS: tag1][ADVICE: text][CONFIDENCE: X%]`;
-            const analysis = await analyzeImage(dataUrl, prompt);
+            const analysis = await analyzeImage(dataUrl, prompt, settings.plantType);
             const metadata = parseMetaData(analysis);
-            setImages(prev => prev.map(img => img.id === newImage.id ? { ...img, analysis, ...metadata } : img));
-          } catch (e) { console.error(e); }
+            
+            if (user) {
+              const q = query(
+                collection(db, 'users', user.uid, 'snapshots'),
+                where('timestamp', '==', newImage.timestamp),
+                limit(1)
+              );
+              const snapshot = await getDocs(q);
+              if (!snapshot.empty) {
+                await setDoc(doc(db, 'users', user.uid, 'snapshots', snapshot.docs[0].id), {
+                  ...newImage,
+                  analysis,
+                  ...metadata
+                });
+              }
+            } else {
+              setImages(prev => prev.map(img => img.id === newImage.id ? { ...img, analysis, ...metadata } : img));
+            }
+          } catch (e: any) { 
+            console.error(e);
+            setGlobalError(e.message || "Neural analysis failed.");
+            setTimeout(() => setGlobalError(null), 5000);
+          }
         }
       }
     }
@@ -146,10 +282,47 @@ const App: React.FC = () => {
   const parseMetaData = (text: string) => {
     const confidence = text.match(/\[CONFIDENCE:\s*(\d+)%?\]/i);
     const health = text.match(/\[HEALTH:\s*(HEALTHY|STRESSED|CRITICAL)\]/i);
+    const stage = text.match(/\[STAGE:\s*([^\]]+)\]/i);
     return {
       confidence: confidence ? parseInt(confidence[1]) : undefined,
-      healthStatus: health ? (health[1].toUpperCase() as any) : undefined
+      healthStatus: health ? (health[1].toUpperCase() as any) : undefined,
+      growthStage: stage ? stage[1].trim() : undefined
     };
+  };
+
+  const exportData = (format: 'json' | 'csv') => {
+    if (images.length === 0) return;
+    
+    let content = '';
+    let fileName = `gaia_export_${Date.now()}`;
+    let mimeType = '';
+
+    if (format === 'json') {
+      content = JSON.stringify(images, null, 2);
+      fileName += '.json';
+      mimeType = 'application/json';
+    } else {
+      const headers = ['ID', 'Timestamp', 'Health', 'Stage', 'Confidence', 'Analysis'];
+      const rows = images.map(img => [
+        img.id,
+        new Date(img.timestamp).toISOString(),
+        img.healthStatus || 'N/A',
+        img.growthStage || 'N/A',
+        img.confidence || 'N/A',
+        `"${(img.analysis || '').replace(/"/g, '""')}"`
+      ]);
+      content = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      fileName += '.csv';
+      mimeType = 'text/csv';
+    }
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleChatSubmit = async (e: React.FormEvent) => {
@@ -160,13 +333,131 @@ const App: React.FC = () => {
     setUserInput('');
     setIsProcessing(true);
     try {
-      const result = await sendMessage(chatMessages, newMsg.text);
-      setChatMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: result.text || "", timestamp: Date.now() }]);
-    } catch (e) { console.error(e); } finally { setIsProcessing(false); }
+      const result = await sendMessage(chatMessages, newMsg.text, {
+        useThinking,
+        useSearch,
+        useMaps,
+        location
+      });
+      setChatMessages(prev => [...prev, { 
+        id: Date.now().toString(), 
+        role: 'model', 
+        text: result.text || "", 
+        timestamp: Date.now(),
+        groundingUrls: result.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => ({
+          title: c.web?.title || c.maps?.title,
+          uri: c.web?.uri || c.maps?.uri
+        }))
+      }]);
+    } catch (e: any) { 
+      console.error(e);
+      setGlobalError(e.message || "Neural link failed.");
+      setTimeout(() => setGlobalError(null), 5000);
+    } finally { setIsProcessing(false); }
   };
+
+  const handleGenerateImage = async () => {
+    if (!userInput.trim()) {
+      setGlobalError("Please enter a prompt first.");
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const result = await generateImage(userInput);
+      if (result.imageUrl) {
+        setChatMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          role: 'model',
+          text: "Generated image based on your prompt:",
+          timestamp: Date.now(),
+          imageUrl: result.imageUrl
+        }]);
+        setUserInput('');
+      }
+    } catch (e: any) {
+      setGlobalError(e.message || "Image generation failed.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (e: any) {
+      setGlobalError("Login failed: " + e.message);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setImages([]);
+      setChatMessages([]);
+    } catch (e: any) {
+      setGlobalError("Logout failed: " + e.message);
+    }
+  };
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-cyber-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Leaf className="text-cyber-accent animate-pulse" size={48} />
+          <p className="text-cyber-accent font-mono text-xs tracking-widest">INITIALIZING GAIA...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-cyber-900 text-gray-200 font-sans flex flex-col items-center justify-center p-6 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-cyber-800/20 via-cyber-900 to-black">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md w-full bg-black/40 backdrop-blur-xl border border-white/5 p-10 rounded-3xl shadow-2xl text-center space-y-8"
+        >
+          <div className="flex justify-center">
+            <div className="p-4 bg-cyber-accent/10 rounded-full ring-1 ring-cyber-accent/30 shadow-[0_0_30px_rgba(132,204,22,0.2)]">
+              <Leaf className="text-cyber-accent" size={48} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-mono font-bold tracking-tighter">CHRONOS <span className="text-cyber-accent">GAIA</span></h1>
+            <p className="text-gray-500 text-sm font-mono tracking-widest uppercase">Neural Plant Monitoring System</p>
+          </div>
+          <p className="text-gray-400 text-sm leading-relaxed">
+            Connect your neural profile to begin monitoring your botanical assets with AI-driven growth analysis and real-time health tracking.
+          </p>
+          <button 
+            onClick={handleLogin}
+            className="w-full py-4 bg-cyber-accent text-black font-bold rounded-xl hover:bg-white transition-all shadow-lg shadow-cyber-accent/20 flex items-center justify-center gap-3 group"
+          >
+            <Globe size={20} className="group-hover:rotate-12 transition-transform" />
+            CONNECT WITH GOOGLE
+          </button>
+          <p className="text-[10px] text-gray-600 font-mono uppercase tracking-widest">Secure Neural Link Required</p>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-cyber-900 text-gray-200 font-sans flex flex-col selection:bg-cyber-accent selection:text-black">
+      {/* Global Error Toast */}
+      {globalError && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[150] animate-in slide-in-from-top duration-300">
+          <div className="bg-red-900/90 backdrop-blur-md border border-red-500/50 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+            <AlertTriangle className="text-red-400" size={20} />
+            <span className="text-sm font-medium">{globalError}</span>
+            <button onClick={() => setGlobalError(null)} className="ml-2 text-white/50 hover:text-white">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Stealth Mode Overlay - Better Visuals */}
       {stealthMode && (
         <div 
@@ -193,7 +484,14 @@ const App: React.FC = () => {
           <Leaf className="text-cyber-accent w-6 h-6 drop-shadow-[0_0_8px_rgba(132,204,22,0.4)]"/>
           <h1 className="font-mono font-bold tracking-tighter text-lg bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">CHRONOS <span className="text-cyber-accent">GAIA</span></h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:flex flex-col items-end">
+            <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest">{user.displayName || 'Neural Entity'}</span>
+            <button onClick={handleLogout} className="text-[8px] font-mono text-cyber-accent hover:text-white uppercase tracking-widest">Disconnect</button>
+          </div>
+          <div className="w-8 h-8 rounded-full border border-cyber-accent/30 overflow-hidden bg-cyber-accent/10 flex items-center justify-center">
+            {user.photoURL ? <img src={user.photoURL} alt="Profile" /> : <Activity size={16} className="text-cyber-accent" />}
+          </div>
           <button 
             onClick={() => setStealthMode(!stealthMode)} 
             className={`p-2 rounded-lg transition-all border ${stealthMode ? 'bg-cyber-accent/20 text-cyber-accent border-cyber-accent/30' : 'text-gray-500 border-white/5 hover:bg-white/5'}`}
@@ -209,6 +507,12 @@ const App: React.FC = () => {
             <Settings size={18}/>
           </button>
           <button 
+            onClick={() => setAppFlowMode(!appFlowMode)}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-lg font-bold text-[11px] tracking-widest transition-all border ${appFlowMode ? 'bg-cyber-accent text-black border-cyber-accent shadow-[0_0_15px_rgba(34,211,238,0.5)]' : 'bg-white/5 text-gray-400 border-white/5 hover:bg-white/10'}`}
+          >
+            <Activity size={14} /> {appFlowMode ? 'EXIT FLOW' : 'APPFLOW'}
+          </button>
+          <button 
             onClick={() => setLiveMode(true)} 
             className="flex items-center gap-2 px-4 py-1.5 bg-cyber-accent/5 border border-cyber-accent/40 text-cyber-accent rounded-lg font-bold text-[11px] tracking-widest hover:bg-cyber-accent hover:text-black transition-all shadow-[0_0_15px_rgba(132,204,22,0.1)]"
           >
@@ -218,8 +522,14 @@ const App: React.FC = () => {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Main Feed and Timeline */}
-        <main className="flex-1 p-6 space-y-6 overflow-y-auto custom-scrollbar">
+        {appFlowMode ? (
+          <div className="flex-1 p-6">
+            <AppFlow />
+          </div>
+        ) : (
+          <>
+            {/* Main Feed and Timeline */}
+            <main className="flex-1 p-6 space-y-6 overflow-y-auto custom-scrollbar">
           <div className="grid lg:grid-cols-12 gap-6">
             <div className="lg:col-span-8 space-y-6">
               <div className="aspect-video bg-black rounded-xl overflow-hidden border border-cyber-700/50 relative shadow-2xl group ring-1 ring-white/5">
@@ -315,7 +625,22 @@ const App: React.FC = () => {
                   {chatMessages.map(m => (
                     <div key={m.id} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
                       <div className={`p-3.5 rounded-xl text-xs sm:text-sm max-w-[95%] shadow-sm ${m.role === 'user' ? 'bg-cyber-700/80 text-white border border-cyber-accent/20' : 'bg-black/50 border border-white/5 text-gray-300'}`}>
-                        {m.text}
+                        <div className="markdown-body">
+                          <Markdown>{m.text}</Markdown>
+                        </div>
+                        {m.imageUrl && (
+                          <img src={m.imageUrl} alt="Generated" className="mt-3 rounded-lg border border-white/10 max-w-full" referrerPolicy="no-referrer" />
+                        )}
+                        {m.groundingUrls && m.groundingUrls.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-white/5 space-y-1">
+                            <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Sources:</p>
+                            {m.groundingUrls.map((url, i) => (
+                              <a key={i} href={url.uri} target="_blank" rel="noopener noreferrer" className="text-[10px] text-cyber-accent hover:underline flex items-center gap-1">
+                                <Globe size={10} /> {url.title || url.uri}
+                              </a>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <span className="text-[8px] mt-1 text-gray-600 font-mono px-1">{new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
                     </div>
@@ -335,30 +660,84 @@ const App: React.FC = () => {
                       placeholder="Query the Gaia network..." 
                       className="w-full bg-black/50 border border-white/10 rounded-lg py-3 px-4 text-sm focus:outline-none focus:border-cyber-accent/50 focus:ring-1 focus:ring-cyber-accent/20 text-white transition-all placeholder:text-gray-600"
                     />
-                    <button type="submit" disabled={isProcessing} className="absolute right-3 top-3 text-cyber-accent/50 hover:text-cyber-accent transition-colors disabled:opacity-20">
-                      <MessageSquare size={18}/>
-                    </button>
+                    <div className="absolute right-3 top-2.5 flex items-center gap-2">
+                      <button 
+                        type="button" 
+                        onClick={handleGenerateImage}
+                        disabled={isProcessing} 
+                        className="text-gray-500 hover:text-cyber-accent transition-colors disabled:opacity-20"
+                        title="Generate Image"
+                      >
+                        <Sun size={18}/>
+                      </button>
+                      <button type="submit" disabled={isProcessing} className="text-cyber-accent/50 hover:text-cyber-accent transition-colors disabled:opacity-20">
+                        <MessageSquare size={18}/>
+                      </button>
+                    </div>
                    </div>
                    <div className="flex gap-4 mt-3 px-1">
-                      <div className="flex items-center gap-2 text-gray-600 hover:text-cyber-accent cursor-pointer transition-colors"><Radio size={12}/><span className="text-[9px] font-mono">LIVE</span></div>
-                      <div className="flex items-center gap-2 text-gray-600 hover:text-cyber-accent cursor-pointer transition-colors"><Globe size={12}/><span className="text-[9px] font-mono">GLOBAL</span></div>
-                      <div className="flex items-center gap-2 text-gray-600 hover:text-cyber-accent cursor-pointer transition-colors"><MapPin size={12}/><span className="text-[9px] font-mono">LOCATE</span></div>
+                      <button 
+                        type="button"
+                        onClick={() => setUseThinking(!useThinking)}
+                        className={`flex items-center gap-2 transition-colors ${useThinking ? 'text-cyber-accent' : 'text-gray-600 hover:text-gray-400'}`}
+                      >
+                        <BrainCircuit size={12}/><span className="text-[9px] font-mono">THINK</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setUseSearch(!useSearch)}
+                        className={`flex items-center gap-2 transition-colors ${useSearch ? 'text-cyber-accent' : 'text-gray-600 hover:text-gray-400'}`}
+                      >
+                        <Globe size={12}/><span className="text-[9px] font-mono">SEARCH</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setUseMaps(!useMaps)}
+                        className={`flex items-center gap-2 transition-colors ${useMaps ? 'text-cyber-accent' : 'text-gray-600 hover:text-gray-400'}`}
+                      >
+                        <MapPin size={12}/><span className="text-[9px] font-mono">MAPS</span>
+                      </button>
                    </div>
                 </form>
               </div>
             </div>
           </div>
         </main>
+          </>
+        )}
 
         {/* System Config Sidebar - Styled exactly as requested */}
-        {showSettings && (
-          <aside className="w-[320px] border-l border-white/10 bg-[#0a0f1a] p-6 overflow-y-auto custom-scrollbar animate-in slide-in-from-right duration-300 shadow-2xl z-40">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-[13px] font-mono font-bold text-cyber-accent flex items-center gap-2 uppercase tracking-[0.1em]"><Settings size={16}/> System Config</h2>
-              <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-white transition-colors"><X size={18}/></button>
-            </div>
+        <AnimatePresence>
+          {showSettings && (
+            <motion.aside 
+              initial={{ x: 320, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 320, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="w-[320px] border-l border-white/10 bg-[#0a0f1a] p-6 overflow-y-auto custom-scrollbar shadow-2xl z-40"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-[13px] font-mono font-bold text-cyber-accent flex items-center gap-2 uppercase tracking-[0.1em]"><Settings size={16}/> System Config</h2>
+                <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-white transition-colors"><X size={18}/></button>
+              </div>
 
             <div className="space-y-10">
+              {/* Plant Identity Section */}
+              <section className="space-y-4">
+                <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2 font-bold"><Leaf size={12}/> Plant Identity</label>
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Monstera Deliciosa"
+                    value={settings.plantType}
+                    onChange={e => setSettings({...settings, plantType: e.target.value})}
+                    className="w-full bg-black/40 border border-white/5 rounded-lg py-2.5 px-4 text-xs font-mono focus:outline-none focus:border-cyber-accent/50 text-white transition-all placeholder:text-gray-700"
+                  />
+                  <Tag className="absolute right-3 top-2.5 text-gray-700" size={14} />
+                </div>
+                <p className="text-[9px] text-gray-600 font-mono leading-tight">Specifying the species allows Gaia to provide more accurate growth stage detection and health advice.</p>
+              </section>
+
               {/* Capture Frequency Section */}
               <section className="space-y-4">
                 <div className="flex justify-between items-center text-[10px] font-mono uppercase tracking-[0.1em]">
@@ -480,9 +859,37 @@ const App: React.FC = () => {
                   </button>
                 </div>
               </section>
+
+              {/* Data Management Section */}
+              <section className="space-y-4">
+                <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2 font-bold"><FileText size={12}/> Data Management</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button 
+                    onClick={() => exportData('json')}
+                    disabled={images.length === 0}
+                    className="py-2.5 bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all disabled:opacity-20 flex items-center justify-center gap-2"
+                  >
+                    Export JSON
+                  </button>
+                  <button 
+                    onClick={() => exportData('csv')}
+                    disabled={images.length === 0}
+                    className="py-2.5 bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all disabled:opacity-20 flex items-center justify-center gap-2"
+                  >
+                    Export CSV
+                  </button>
+                </div>
+                <button 
+                  onClick={() => setShowOnboarding(true)}
+                  className="w-full py-2.5 bg-cyber-accent/10 border border-cyber-accent/20 text-cyber-accent rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-cyber-accent/20 transition-all flex items-center justify-center gap-2"
+                >
+                  <HelpCircle size={14}/> Replay Tutorial
+                </button>
+              </section>
             </div>
-          </aside>
+          </motion.aside>
         )}
+        </AnimatePresence>
       </div>
 
       {/* Background Monitoring Indicator */}
@@ -498,7 +905,33 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {liveMode && <LiveAudio onClose={() => setLiveMode(false)} onCapture={handleManualCapture} onTranscript={(t, u) => setChatMessages(p => [...p, {id: Date.now().toString(), role: u ? 'user' : 'model', text: t, timestamp: Date.now()}])} />}
+      <AnimatePresence>
+        {showOnboarding && (
+          <Onboarding onComplete={() => {
+            setShowOnboarding(false);
+            localStorage.setItem('gaia_onboarding_complete', 'true');
+            if (user) {
+              setDoc(doc(db, 'users', user.uid), { hasCompletedOnboarding: true }, { merge: true });
+            }
+          }} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {liveMode && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+          >
+            <LiveAudio 
+              onClose={() => setLiveMode(false)} 
+              onCapture={handleManualCapture} 
+              onTranscript={(t, u) => setChatMessages(p => [...p, {id: Date.now().toString(), role: u ? 'user' : 'model', text: t, timestamp: Date.now()}])} 
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -4,20 +4,21 @@ import {
   Modality, 
   LiveServerMessage, 
   Type,
-  FunctionDeclaration
+  FunctionDeclaration,
+  ThinkingLevel
 } from "@google/genai";
 
 // --- Configuration Constants ---
-const MODEL_CHAT_PRO = 'gemini-3-pro-preview';
-const MODEL_FAST_LITE = 'gemini-flash-lite-latest';
+const MODEL_CHAT_PRO = 'gemini-3.1-pro-preview';
+const MODEL_FAST_LITE = 'gemini-3.1-flash-lite-preview';
 const MODEL_SEARCH = 'gemini-3-flash-preview';
 const MODEL_MAPS = 'gemini-2.5-flash';
-const MODEL_VISION = 'gemini-3-pro-preview';
+const MODEL_VISION = 'gemini-3.1-pro-preview';
 const MODEL_LIVE = 'gemini-2.5-flash-native-audio-preview-12-2025';
 const MODEL_TTS = 'gemini-2.5-flash-preview-tts';
+const MODEL_IMAGE = 'gemini-3-pro-image-preview';
 
 // --- Instance Helper ---
-// Always create a new GoogleGenAI instance right before making an API call to ensure it uses the most up-to-date API key.
 const getAI = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 };
@@ -33,44 +34,44 @@ const captureSnapshotTool: FunctionDeclaration = {
 export const sendMessage = async (
   history: { role: string; text: string }[], 
   newMessage: string,
-  useThinking: boolean = false,
-  useSearch: boolean = false,
-  useMaps: boolean = false,
-  location?: { lat: number; lng: number }
-) => {
+  options: {
+    useThinking?: boolean;
+    useSearch?: boolean;
+    useMaps?: boolean;
+    location?: { lat: number; lng: number };
+  } = {}
+): Promise<{ text: string; candidates: any[] }> => {
   const ai = getAI();
   
   let modelName = MODEL_CHAT_PRO;
   let config: any = {};
 
-  if (useThinking) {
+  if (options.useThinking) {
     modelName = MODEL_CHAT_PRO;
-    config.thinkingConfig = { thinkingBudget: 32768 };
-  } else if (useSearch) {
+    config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
+  } else if (options.useSearch) {
     modelName = MODEL_SEARCH;
     config.tools = [{ googleSearch: {} }];
-  } else if (useMaps) {
+  } else if (options.useMaps) {
     modelName = MODEL_MAPS;
     config.tools = [{ googleMaps: {} }];
-    if (location) {
+    if (options.location) {
       config.toolConfig = {
         retrievalConfig: {
           latLng: {
-            latitude: location.lat,
-            longitude: location.lng
+            latitude: options.location.lat,
+            longitude: options.location.lng
           }
         }
       };
     }
-  } else {
-    modelName = MODEL_CHAT_PRO;
   }
 
   const chat = ai.chats.create({
     model: modelName,
     config: {
       ...config,
-      systemInstruction: "You are Gaia, an expert AI botanist. You monitor plant growth, diagnose health issues, and offer gardening advice.",
+      systemInstruction: "You are Gaia, an expert AI botanist. You monitor plant growth, diagnose health issues, and offer gardening advice. Be precise and helpful.",
     },
     history: history.map(h => ({
       role: h.role === 'model' ? 'model' : 'user',
@@ -78,31 +79,69 @@ export const sendMessage = async (
     }))
   });
 
-  const response = await chat.sendMessage({ message: newMessage });
-  
-  return {
-    text: response.text,
-    groundingMetadata: response.candidates?.[0]?.groundingMetadata
-  };
+  try {
+    const response = await chat.sendMessage({ message: newMessage });
+    
+    return {
+      text: response.text,
+      candidates: response.candidates
+    };
+  } catch (error: any) {
+    console.error("Chat Error:", error);
+    if (error.message?.includes('API_KEY_INVALID')) throw new Error("Invalid API Key. Please check your configuration.");
+    if (error.message?.includes('quota')) throw new Error("API Quota Exceeded. Please try again later.");
+    throw new Error("Neural Link Failed. Check your network connection.");
+  }
 };
 
-export const analyzeImage = async (base64Data: string, prompt: string) => {
+export const generateImage = async (prompt: string, aspectRatio: string = "1:1"): Promise<{ imageUrl: string }> => {
+  const ai = getAI();
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL_IMAGE,
+      contents: {
+        parts: [{ text: prompt }]
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: aspectRatio as any,
+          imageSize: "1K"
+        }
+      }
+    });
+    
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return { imageUrl: `data:image/png;base64,${part.inlineData.data}` };
+      }
+    }
+    throw new Error("No image generated.");
+  } catch (error: any) {
+    console.error("Image Generation Error:", error);
+    throw new Error("Visual synthesis failed. Check your API key or quota.");
+  }
+};
+
+export const analyzeImage = async (base64Data: string, prompt: string, plantType?: string) => {
   const ai = getAI();
   try {
     const cleanBase64 = base64Data.split(',')[1];
+    const finalPrompt = plantType ? `[PLANT SPECIES: ${plantType}] ${prompt}` : prompt;
     const response = await ai.models.generateContent({
       model: MODEL_VISION,
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
-          { text: prompt }
+          { text: finalPrompt }
         ]
       }
     });
     return response.text;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Analysis Error:", error);
-    throw new Error("Optical Analysis Failed. Check connection.");
+    if (error.message?.includes('API_KEY_INVALID')) throw new Error("Invalid API Key. Please check your configuration.");
+    if (error.message?.includes('quota')) throw new Error("API Quota Exceeded. Please try again later.");
+    throw new Error("Optical Analysis Failed. Check your network connection.");
   }
 };
 
@@ -254,13 +293,12 @@ export const connectToLiveAPI = async (
               if (onCaptureTrigger) onCaptureTrigger();
               
               const session = await sessionPromise;
-              // sendToolResponse expects an object for functionResponses, not an array
               session.sendToolResponse({
-                functionResponses: {
+                functionResponses: [{
                   id: fc.id,
                   name: fc.name,
                   response: { result: "Snapshot captured successfully." }
-                }
+                }]
               });
             }
           }
