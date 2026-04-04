@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { motion } from 'framer-motion';
 import { connectToLiveAPI, createPcmBlob, decodeAudio, decodeAudioData, blobToBase64 } from '../services/geminiService';
 import { Mic, MicOff, Activity, X, Video, Camera, SwitchCamera, MessageSquare } from 'lucide-react';
@@ -9,7 +9,11 @@ interface LiveAudioProps {
   onTranscript: (text: string, isUser: boolean) => void;
 }
 
-const LiveAudio: React.FC<LiveAudioProps> = ({ onClose, onCapture, onTranscript }) => {
+export interface LiveAudioHandle {
+  capture: () => string | null;
+}
+
+const LiveAudio = forwardRef<LiveAudioHandle, LiveAudioProps>(({ onClose, onCapture, onTranscript }, ref) => {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'user'|'environment'>('user');
@@ -28,6 +32,23 @@ const LiveAudio: React.FC<LiveAudioProps> = ({ onClose, onCapture, onTranscript 
   const videoIntervalRef = useRef<number>(0);
   const streamRef = useRef<MediaStream | null>(null);
   const transcriptsRef = useRef<HTMLDivElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    capture: () => {
+      if (videoRef.current && canvasRef.current) {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        if (context) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          return canvas.toDataURL('image/jpeg', 0.9);
+        }
+      }
+      return null;
+    }
+  }));
 
   const FRAME_RATE = 1; // Frames per second to send to Gemini (bandwidth optimization)
 
@@ -289,6 +310,6 @@ const LiveAudio: React.FC<LiveAudioProps> = ({ onClose, onCapture, onTranscript 
       </div>
     </div>
   );
-};
+});
 
 export default LiveAudio;

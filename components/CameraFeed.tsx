@@ -27,6 +27,8 @@ const CameraFeed = forwardRef<CameraHandle, CameraFeedProps>(({ active, facingMo
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [touchStartDist, setTouchStartDist] = useState<number | null>(null);
+  const [touchStartZoom, setTouchStartZoom] = useState(1);
 
   // Flash/Torch State
   const [flashMode, setFlashMode] = useState<'off' | 'on' | 'auto'>('off');
@@ -157,6 +159,41 @@ const CameraFeed = forwardRef<CameraHandle, CameraFeedProps>(({ active, facingMo
 
   const handleMouseUp = () => setIsDragging(false);
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      setTouchStartDist(dist);
+      setTouchStartZoom(zoom);
+    } else if (e.touches.length === 1 && zoom > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.touches[0].clientX - pan.x, y: e.touches[0].clientY - pan.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStartDist !== null) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const delta = dist / touchStartDist;
+      setZoom(Math.min(Math.max(1, touchStartZoom * delta), 5));
+    } else if (e.touches.length === 1 && isDragging && zoom > 1) {
+      setPan({
+        x: e.touches[0].clientX - dragStart.x,
+        y: e.touches[0].clientY - dragStart.y
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setTouchStartDist(null);
+    setIsDragging(false);
+  };
+
   return (
     <div 
       ref={containerRef}
@@ -166,6 +203,9 @@ const CameraFeed = forwardRef<CameraHandle, CameraFeedProps>(({ active, facingMo
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {error ? (
         <div className="flex flex-col items-center justify-center h-full text-cyber-warn p-6 text-center space-y-4 bg-cyber-900/90 backdrop-blur-sm">
@@ -237,7 +277,7 @@ const CameraFeed = forwardRef<CameraHandle, CameraFeedProps>(({ active, facingMo
                 <button 
                   onClick={() => setFlashMode('auto')}
                   className={`px-2 py-0.5 rounded text-[8px] font-bold transition-all font-mono ${flashMode === 'auto' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white'}`}
-                  title="Flash Auto"
+                  title="Auto Flash (Experimental)"
                 >
                   AUTO
                 </button>

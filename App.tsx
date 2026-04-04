@@ -19,12 +19,13 @@ import {
   onSnapshot, 
   doc, 
   getDoc,
+  deleteDoc,
   orderBy,
   limit,
   Timestamp
 } from 'firebase/firestore';
 import CameraFeed, { CameraHandle } from './components/CameraFeed';
-import LiveAudio from './components/LiveAudio';
+import LiveAudio, { LiveAudioHandle } from './components/LiveAudio';
 import Timeline from './components/Timeline';
 import Onboarding from './components/Onboarding';
 import confetti from 'canvas-confetti';
@@ -63,6 +64,7 @@ import {
   Cpu,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Tag,
   Calendar,
   Sprout,
@@ -74,6 +76,7 @@ import {
   Power,
   HelpCircle,
   Lightbulb,
+  LogOut,
   X
 } from 'lucide-react';
 
@@ -97,6 +100,7 @@ const App: React.FC = () => {
     plantType: '',
     hasCompletedOnboarding: false
   });
+  const [activeTab, setActiveTab] = useState<'monitor' | 'timeline' | 'console'>('monitor');
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [selectedImage, setSelectedImage] = useState<CapturedImage | null>(null);
@@ -111,6 +115,7 @@ const App: React.FC = () => {
   const [location, setLocation] = useState<{lat: number, lng: number} | undefined>(undefined);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [flash, setFlash] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Chat Options
   const [useThinking, setUseThinking] = useState(false);
@@ -118,6 +123,7 @@ const App: React.FC = () => {
   const [useMaps, setUseMaps] = useState(false);
 
   const cameraRef = useRef<CameraHandle>(null);
+  const liveAudioRef = useRef<LiveAudioHandle>(null);
   const intervalRef = useRef<any>(null);
   const playbackRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
@@ -218,69 +224,116 @@ const App: React.FC = () => {
     if (cameraRef.current) {
       const dataUrl = cameraRef.current.capture();
       if (dataUrl) {
-        const newImage: CapturedImage = { 
-          id: Date.now().toString(), 
-          uid: user?.uid || 'anonymous',
-          timestamp: Date.now(), 
-          dataUrl 
-        };
-        
-        if (user) {
-          try {
-            await addDoc(collection(db, 'users', user.uid, 'snapshots'), newImage);
-          } catch (e: any) {
-            console.error("Failed to save snapshot to Firestore:", e);
-          }
-        } else {
-          setImages(prev => [...prev, newImage]);
-        }
-
-        if (settings.autoAnalyze) {
-          try {
-            const prompt = `Analyze plant snapshot. [HEALTH: STATUS][STAGE: stage][TAGS: tag1][ADVICE: text][CONFIDENCE: X%]`;
-            const analysis = await analyzeImage(dataUrl, prompt, settings.plantType);
-            const metadata = parseMetaData(analysis);
-            
-            if (user) {
-              const q = query(
-                collection(db, 'users', user.uid, 'snapshots'),
-                where('timestamp', '==', newImage.timestamp),
-                limit(1)
-              );
-              const snapshot = await getDocs(q);
-              if (!snapshot.empty) {
-                await setDoc(doc(db, 'users', user.uid, 'snapshots', snapshot.docs[0].id), {
-                  ...newImage,
-                  analysis,
-                  ...metadata
-                });
-              }
-            } else {
-              setImages(prev => prev.map(img => img.id === newImage.id ? { ...img, analysis, ...metadata } : img));
-            }
-
-            if (metadata.healthStatus === 'HEALTHY') {
-              confetti({
-                particleCount: 150,
-                spread: 70,
-                origin: { y: 0.6 },
-                colors: ['#84cc16', '#22d3ee', '#ffffff']
-              });
-            }
-          } catch (e: any) { 
-            console.error(e);
-            setGlobalError(e.message || "Neural analysis failed.");
-            setTimeout(() => setGlobalError(null), 5000);
-          }
-        }
+        await processCapturedImage(dataUrl);
       }
+    }
+  };
+
+  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
+
+  const deleteSnapshot = async (id: string) => {
+    if (!user) {
+      setImages(prev => prev.filter(img => img.id !== id));
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'snapshots', id));
+      // onSnapshot will update the UI
+    } catch (e) {
+      console.error("Delete failed:", e);
+      setGlobalError("Failed to delete snapshot.");
+    }
+  };
+
+  const purgeSnapshots = async () => {
+    if (!user) {
+      setImages([]);
+      return;
+    }
+    
+    setShowPurgeConfirm(true);
+  };
+
+  const confirmPurge = async () => {
+    if (!user) return;
+    setShowPurgeConfirm(false);
+    
+    try {
+      const q = query(collection(db, 'users', user.uid, 'snapshots'));
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, 'users', user.uid, 'snapshots', d.id)));
+      await Promise.all(deletePromises);
+      setImages([]);
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#ef4444', '#991b1b']
+      });
+    } catch (e) {
+      console.error("Purge failed:", e);
+      setGlobalError("Neural purge failed. Check connection.");
     }
   };
 
   const handleManualCapture = async () => {
     setFlash(true);
     setTimeout(() => setFlash(false), 150);
-    await captureAndProcess();
+    
+    if (liveMode && liveAudioRef.current) {
+      const dataUrl = liveAudioRef.current.capture();
+      if (dataUrl) {
+        await processCapturedImage(dataUrl);
+      }
+    } else {
+      await captureAndProcess();
+    }
+  };
+
+  const processCapturedImage = async (dataUrl: string) => {
+    const newImage: CapturedImage = { 
+      id: Date.now().toString(), 
+      uid: user?.uid || 'anonymous',
+      timestamp: Date.now(), 
+      dataUrl 
+    };
+    
+    if (user) {
+      try {
+        await addDoc(collection(db, 'users', user.uid, 'snapshots'), newImage);
+      } catch (e: any) {
+        console.error("Failed to save snapshot to Firestore:", e);
+      }
+    } else {
+      setImages(prev => [...prev, newImage]);
+    }
+
+    if (settings.autoAnalyze) {
+      try {
+        const prompt = `Analyze plant snapshot. [HEALTH: STATUS][STAGE: stage][TAGS: tag1][ADVICE: text][CONFIDENCE: X%]`;
+        const analysis = await analyzeImage(dataUrl, prompt, settings.plantType);
+        const metadata = parseMetaData(analysis);
+        
+        if (user) {
+          const q = query(
+            collection(db, 'users', user.uid, 'snapshots'),
+            where('timestamp', '==', newImage.timestamp),
+            limit(1)
+          );
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            await setDoc(doc(db, 'users', user.uid, 'snapshots', snap.docs[0].id), {
+              analysis,
+              healthStatus: metadata.healthStatus,
+              growthStage: metadata.growthStage,
+              confidence: metadata.confidence
+            }, { merge: true });
+          }
+        }
+      } catch (e) {
+        console.error("AI Analysis failed:", e);
+      }
+    }
   };
 
   const parseMetaData = (text: string) => {
@@ -393,7 +446,12 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = async () => {
+    setShowLogoutConfirm(false);
     try {
       await signOut(auth);
       setImages([]);
@@ -520,7 +578,10 @@ const App: React.FC = () => {
             <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest">{user.displayName || 'Neural Entity'}</span>
             <button onClick={handleLogout} className="text-[8px] font-mono text-cyber-accent hover:text-white uppercase tracking-widest">Disconnect</button>
           </div>
-          <div className="w-8 h-8 rounded-full border border-cyber-accent/30 overflow-hidden bg-cyber-accent/10 flex items-center justify-center">
+          <div 
+            onClick={handleLogout}
+            className="w-8 h-8 rounded-full border border-cyber-accent/30 overflow-hidden bg-cyber-accent/10 flex items-center justify-center cursor-pointer hover:border-cyber-accent transition-all"
+          >
             {user.photoURL ? <img src={user.photoURL} alt="Profile" /> : <Activity size={16} className="text-cyber-accent" />}
           </div>
           <button 
@@ -542,9 +603,31 @@ const App: React.FC = () => {
 
       <div className="flex-1 flex overflow-hidden relative">
         <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto custom-scrollbar">
+            {/* Mobile Tab Switcher */}
+            <div className="lg:hidden flex p-1 bg-black/40 border border-white/5 rounded-xl mb-4">
+              <button 
+                onClick={() => setActiveTab('monitor')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[10px] font-mono uppercase tracking-widest transition-all ${activeTab === 'monitor' ? 'bg-cyber-accent text-black font-bold shadow-lg shadow-cyber-accent/20' : 'text-gray-500 hover:text-gray-300'}`}
+              >
+                <Activity size={14}/> Monitor
+              </button>
+              <button 
+                onClick={() => setActiveTab('timeline')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[10px] font-mono uppercase tracking-widest transition-all ${activeTab === 'timeline' ? 'bg-cyber-accent text-black font-bold shadow-lg shadow-cyber-accent/20' : 'text-gray-500 hover:text-gray-300'}`}
+              >
+                <Clock size={14}/> Timeline
+              </button>
+              <button 
+                onClick={() => setActiveTab('console')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[10px] font-mono uppercase tracking-widest transition-all ${activeTab === 'console' ? 'bg-cyber-accent text-black font-bold shadow-lg shadow-cyber-accent/20' : 'text-gray-500 hover:text-gray-300'}`}
+              >
+                <Terminal size={14}/> Console
+              </button>
+            </div>
+
             <div className="grid lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-8 space-y-6">
-                <div className="aspect-square sm:aspect-video bg-black rounded-xl overflow-hidden border border-cyber-700/50 relative shadow-2xl group ring-1 ring-white/5">
+              <div className={`lg:col-span-8 space-y-6 ${activeTab === 'monitor' || activeTab === 'timeline' ? 'block' : 'hidden lg:block'}`}>
+                <div className={`aspect-square sm:aspect-video bg-black rounded-xl overflow-hidden border border-cyber-700/50 relative shadow-2xl group ring-1 ring-white/5 ${activeTab === 'monitor' ? 'block' : 'hidden lg:block'}`}>
                   {/* Visual Flash Effect */}
                   <div className={`absolute inset-0 bg-white z-[60] pointer-events-none transition-opacity duration-200 ease-out ${flash ? 'opacity-80' : 'opacity-0'}`}></div>
 
@@ -599,25 +682,50 @@ const App: React.FC = () => {
               </div>
 
               {/* Timeline Display */}
-              <div className="bg-cyber-800/20 p-3 sm:p-5 rounded-xl border border-white/5 backdrop-blur-sm">
+              <div className={`bg-cyber-800/20 p-3 sm:p-5 rounded-xl border border-white/5 backdrop-blur-sm ${activeTab === 'timeline' ? 'block' : 'hidden lg:block'}`}>
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-[10px] font-mono text-gray-500 flex items-center gap-3 uppercase tracking-[0.2em]">
                     <Clock size={12} className="text-cyber-accent"/> Timeline 
                     <span className="text-white bg-white/5 px-2 py-0.5 rounded ml-2">{images.length} FRAMES</span>
                   </h3>
                   <button 
-                    onClick={() => { if(confirm("Purge all monitoring data?")) setImages([]); }} 
+                    onClick={purgeSnapshots} 
                     className="text-[9px] text-gray-500 hover:text-red-500 flex items-center gap-1 uppercase tracking-widest transition-colors"
                   >
                     <Trash2 size={10}/> Purge Data
                   </button>
                 </div>
-                <Timeline images={images} onSelect={(img) => { setPlaybackMode(false); setSelectedImage(img); }} />
+
+                {/* Mobile Preview for Timeline Selection */}
+                {activeTab === 'timeline' && selectedImage && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="lg:hidden mb-6 aspect-video rounded-lg overflow-hidden border border-cyber-accent/30 relative shadow-lg"
+                  >
+                    <img src={selectedImage.dataUrl} className="w-full h-full object-cover" alt="Preview" />
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 backdrop-blur-sm flex justify-between items-center">
+                       <span className="text-[10px] font-mono text-cyber-accent">{new Date(selectedImage.timestamp).toLocaleString()}</span>
+                       <button 
+                        onClick={() => { setPlaybackMode(true); setActiveTab('monitor'); }}
+                        className="text-[9px] bg-cyber-accent text-black px-2 py-1 rounded font-bold uppercase"
+                       >
+                         Open in Monitor
+                       </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                <Timeline 
+                  images={images} 
+                  onSelect={(img) => { setPlaybackMode(false); setSelectedImage(img); }} 
+                  onDelete={deleteSnapshot}
+                />
               </div>
             </div>
 
             {/* AI Console Sidebar - Mid-page layout */}
-            <div className="lg:col-span-4 flex flex-col min-h-[300px] sm:min-h-[500px]">
+            <div className={`lg:col-span-4 flex flex-col min-h-[300px] sm:min-h-[500px] ${activeTab === 'console' ? 'block' : 'hidden lg:block'}`}>
               <div className="flex-1 bg-cyber-800/10 border border-white/5 rounded-xl flex flex-col overflow-hidden backdrop-blur-md shadow-inner">
                 <div className="p-4 bg-black/30 border-b border-white/5 font-mono text-[10px] flex justify-between items-center uppercase tracking-[0.1em]">
                   <span className="text-gray-400 flex items-center gap-2"><Terminal size={12}/> Console // Gemma v3.1</span>
@@ -897,6 +1005,12 @@ const App: React.FC = () => {
                   </button>
                 </div>
                 <button 
+                  onClick={purgeSnapshots}
+                  className="w-full py-2.5 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={14}/> Purge Neural Core
+                </button>
+                <button 
                   onClick={() => setShowOnboarding(true)}
                   className="w-full py-2.5 bg-cyber-accent/10 border border-cyber-accent/20 text-cyber-accent rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-cyber-accent/20 transition-all flex items-center justify-center gap-2"
                 >
@@ -943,11 +1057,92 @@ const App: React.FC = () => {
             exit={{ opacity: 0, scale: 0.9 }}
           >
             <LiveAudio 
+              ref={liveAudioRef}
               onClose={() => setLiveMode(false)} 
               onCapture={handleManualCapture} 
               onTranscript={(t, u) => setChatMessages(p => [...p, {id: Date.now().toString(), role: u ? 'user' : 'model', text: t, timestamp: Date.now()}])} 
             />
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Logout Confirmation Modal */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-cyber-900 border border-cyber-accent/50 p-6 rounded-xl max-w-sm w-full shadow-[0_0_50px_rgba(132,204,22,0.1)] space-y-6"
+            >
+              <div className="flex items-center gap-4 text-cyber-accent">
+                <div className="p-3 bg-cyber-accent/10 rounded-full">
+                  <LogOut size={24} />
+                </div>
+                <h3 className="text-lg font-bold font-mono uppercase tracking-tighter">Disconnect Neural Link</h3>
+              </div>
+              
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Are you sure you want to terminate the neural connection? Your monitoring session will be suspended.
+              </p>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 py-3 bg-white/5 border border-white/10 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-all"
+                >
+                  Stay Connected
+                </button>
+                <button 
+                  onClick={confirmLogout}
+                  className="flex-1 py-3 bg-cyber-accent text-black rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-lime-500 transition-all shadow-[0_0_20px_rgba(132,204,22,0.3)]"
+                >
+                  Disconnect
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Purge Confirmation Modal */}
+      <AnimatePresence>
+        {showPurgeConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-cyber-900 border border-red-500/50 p-6 rounded-xl max-w-sm w-full shadow-[0_0_50px_rgba(239,68,68,0.2)] space-y-6"
+            >
+              <div className="flex items-center gap-4 text-red-500">
+                <div className="p-3 bg-red-500/10 rounded-full">
+                  <AlertTriangle size={24} />
+                </div>
+                <h3 className="text-lg font-bold font-mono uppercase tracking-tighter">Critical Purge</h3>
+              </div>
+              
+              <p className="text-sm text-gray-400 leading-relaxed">
+                You are about to permanently delete all monitoring data from the neural core. This action is <span className="text-red-400 font-bold">irreversible</span> and will wipe all snapshots and analysis.
+              </p>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowPurgeConfirm(false)}
+                  className="flex-1 py-3 bg-white/5 border border-white/10 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-all"
+                >
+                  Abort
+                </button>
+                <button 
+                  onClick={confirmPurge}
+                  className="flex-1 py-3 bg-red-500 text-black rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-red-600 transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)]"
+                >
+                  Confirm Purge
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

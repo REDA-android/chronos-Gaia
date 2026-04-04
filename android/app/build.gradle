@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.chronos.gaia"
+    namespace "com.gemma.ai"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.chronos.gaia"
+        applicationId "com.gemma.ai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

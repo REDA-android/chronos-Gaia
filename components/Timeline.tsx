@@ -1,13 +1,14 @@
 import React from 'react';
 import { CapturedImage } from '../types';
-import { Clock, Eye, AlertTriangle, Leaf, Sprout, Flower, Sun, HelpCircle } from 'lucide-react';
+import { Clock, Eye, AlertTriangle, Leaf, Sprout, Flower, Sun, HelpCircle, Trash2, Download } from 'lucide-react';
 
 interface TimelineProps {
   images: CapturedImage[];
   onSelect: (img: CapturedImage) => void;
+  onDelete?: (imgId: string) => void;
 }
 
-const Timeline: React.FC<TimelineProps> = ({ images, onSelect }) => {
+const Timeline: React.FC<TimelineProps> = ({ images, onSelect, onDelete }) => {
   const getHealthColor = (img: CapturedImage) => {
     // Priority: Explicit Metadata -> Text Analysis -> Default
     if (img.healthStatus === 'CRITICAL') return 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.4)]';
@@ -48,12 +49,38 @@ const Timeline: React.FC<TimelineProps> = ({ images, onSelect }) => {
         {[...images].reverse().map((img) => (
           <div 
             key={img.id} 
-            onClick={() => onSelect(img)}
-            className={`group relative cursor-pointer w-36 h-24 sm:w-48 sm:h-32 rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${getHealthColor(img)}`}
+            className="group relative w-36 h-24 sm:w-48 sm:h-32 rounded-lg overflow-hidden border-2 transition-all hover:scale-105"
           >
-            <img src={img.dataUrl} alt="Snapshot" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/40 group-hover:bg-black/0 transition-colors"></div>
+            <div 
+              onClick={() => onSelect(img)}
+              className={`w-full h-full cursor-pointer ${getHealthColor(img)}`}
+            >
+              <img src={img.dataUrl} alt="Snapshot" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/40 group-hover:bg-black/0 transition-colors"></div>
+            </div>
             
+            {/* Action Buttons */}
+            <div className="absolute top-2 left-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+              {onDelete && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onDelete(img.id); }}
+                  className="bg-red-500/80 text-white p-1 rounded-full hover:bg-red-600 shadow-lg"
+                  title="Delete Frame"
+                >
+                  <Trash2 size={10} />
+                </button>
+              )}
+              <a 
+                href={img.dataUrl} 
+                download={`gemma-snapshot-${img.id}.jpg`}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-cyber-accent/80 text-black p-1 rounded-full hover:bg-cyber-accent shadow-lg"
+                title="Download Frame"
+              >
+                <Download size={10} />
+              </a>
+            </div>
+
             {/* Analysis Available Indicator */}
             {img.analysis && (
                <div className="absolute top-2 right-2 bg-cyber-accent text-black rounded-full p-1 shadow-[0_0_10px_#84cc16] animate-pulse z-10">
@@ -64,7 +91,7 @@ const Timeline: React.FC<TimelineProps> = ({ images, onSelect }) => {
             {/* Growth Stage Icon */}
             {img.growthStage && (
               <div 
-                className="absolute top-2 left-2 bg-black/80 p-1 rounded-full border border-gray-600 shadow-md backdrop-blur-sm"
+                className="absolute top-8 left-2 bg-black/80 p-1 rounded-full border border-gray-600 shadow-md backdrop-blur-sm"
                 title={`Stage: ${img.growthStage}`}
               >
                 {getStageIcon(img.growthStage)}
