@@ -6,6 +6,8 @@ import {
   db, 
   googleProvider, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signOut, 
   onAuthStateChanged 
 } from './firebase';
@@ -129,6 +131,22 @@ const App: React.FC = () => {
   const timerRef = useRef<any>(null);
 
   useEffect(() => {
+    // Handle redirect result for mobile WebViews
+    getRedirectResult(auth).then((result) => {
+      if (result) {
+        console.log("Redirect login successful");
+      }
+    }).catch((error) => {
+      console.error("Redirect login error:", error);
+      if (error.code === 'auth/operation-not-allowed') {
+        setGlobalError("Google Sign-In is not enabled in Firebase Console.");
+      } else if (error.code === 'auth/unauthorized-domain') {
+        setGlobalError("This domain is not authorized in Firebase Console.");
+      } else {
+        setGlobalError("Login failed: " + (error.message || "Unknown error"));
+      }
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       setIsAuthReady(true);
@@ -440,18 +458,11 @@ const App: React.FC = () => {
 
   const handleLogin = async () => {
     try {
-      // On mobile/Capacitor, sometimes signInWithRedirect is more reliable
-      // but let's try to catch the specific error first
-      await signInWithPopup(auth, googleProvider);
+      // On mobile/Capacitor, signInWithRedirect is required because WebViews block popups
+      await signInWithRedirect(auth, googleProvider);
     } catch (e: any) {
       console.error("Login Error:", e);
-      if (e.code === 'auth/operation-not-allowed') {
-        setGlobalError("Google Sign-In is not enabled in Firebase Console.");
-      } else if (e.code === 'auth/unauthorized-domain') {
-        setGlobalError("This domain is not authorized in Firebase Console.");
-      } else {
-        setGlobalError("Login failed: " + (e.message || "Unknown error"));
-      }
+      setGlobalError("Login failed: " + (e.message || "Unknown error"));
     }
   };
 
