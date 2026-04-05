@@ -131,6 +131,20 @@ const App: React.FC = () => {
   const timerRef = useRef<any>(null);
 
   useEffect(() => {
+    // Check for redirect result when app loads
+    const checkRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          console.log("Redirect login successful for:", result.user.email);
+        }
+      } catch (error: any) {
+        console.error("Redirect login error:", error);
+        setGlobalError("Login failed: " + (error.message || "Unknown error"));
+      }
+    };
+    checkRedirect();
+
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       setIsAuthReady(true);
@@ -442,21 +456,12 @@ const App: React.FC = () => {
 
   const handleLogin = async () => {
     try {
-      // Revert to signInWithPopup as redirect is failing in Capacitor
-      // The issue in the video is that the redirect page opens and immediately closes
-      await signInWithPopup(auth, googleProvider);
+      // On Android Capacitor, signInWithPopup is blocked by WebView security policies.
+      // We MUST use signInWithRedirect.
+      await signInWithRedirect(auth, googleProvider);
     } catch (e: any) {
       console.error("Login Error:", e);
-      if (e.code === 'auth/operation-not-allowed') {
-        setGlobalError("Google Sign-In is not enabled in Firebase Console.");
-      } else if (e.code === 'auth/unauthorized-domain') {
-        setGlobalError("This domain is not authorized in Firebase Console.");
-      } else if (e.code === 'auth/popup-closed-by-user') {
-        // User closed the popup, don't show a scary error
-        console.log("User closed the login popup");
-      } else {
-        setGlobalError("Login failed: " + (e.message || "Unknown error"));
-      }
+      setGlobalError("Login failed: " + (e.message || "Unknown error"));
     }
   };
 
