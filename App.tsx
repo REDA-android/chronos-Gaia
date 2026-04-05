@@ -440,9 +440,18 @@ const App: React.FC = () => {
 
   const handleLogin = async () => {
     try {
+      // On mobile/Capacitor, sometimes signInWithRedirect is more reliable
+      // but let's try to catch the specific error first
       await signInWithPopup(auth, googleProvider);
     } catch (e: any) {
-      setGlobalError("Login failed: " + e.message);
+      console.error("Login Error:", e);
+      if (e.code === 'auth/operation-not-allowed') {
+        setGlobalError("Google Sign-In is not enabled in Firebase Console.");
+      } else if (e.code === 'auth/unauthorized-domain') {
+        setGlobalError("This domain is not authorized in Firebase Console.");
+      } else {
+        setGlobalError("Login failed: " + (e.message || "Unknown error"));
+      }
     }
   };
 
