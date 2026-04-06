@@ -20,7 +20,11 @@ const MODEL_IMAGE = 'gemini-2.5-flash-image';
 
 // --- Instance Helper ---
 const getAI = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Gemini API Key is missing. Please check your environment variables.");
+  }
+  return new GoogleGenAI({ apiKey });
 };
 
 // --- Tool Declarations ---
