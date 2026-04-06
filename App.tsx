@@ -34,6 +34,7 @@ import CameraFeed, { CameraHandle } from './components/CameraFeed';
 import LiveAudio, { LiveAudioHandle } from './components/LiveAudio';
 import Timeline from './components/Timeline';
 import Onboarding from './components/Onboarding';
+import { HomeTab, ScanTab, PlantsTab, ScheduleTab } from './components/NewUI';
 import confetti from 'canvas-confetti';
 import { CapturedImage, MonitorSettings, ChatMessage, UserProfile } from './types';
 import { 
@@ -106,14 +107,14 @@ const App: React.FC = () => {
     plantType: '',
     hasCompletedOnboarding: false
   });
-  const [activeTab, setActiveTab] = useState<'monitor' | 'timeline' | 'console'>('monitor');
+  const [activeTab, setActiveTab] = useState<'home' | 'plants' | 'scan' | 'schedule'>('home');
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [selectedImage, setSelectedImage] = useState<CapturedImage | null>(null);
   const [liveMode, setLiveMode] = useState(false);
   const [playbackMode, setPlaybackMode] = useState(false);
   const [stealthMode, setStealthMode] = useState(false);
-  const [showSettings, setShowSettings] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -584,8 +585,14 @@ const App: React.FC = () => {
       {stealthMode && (
         <div 
           className="fixed inset-0 bg-black z-[100] cursor-pointer flex flex-col items-center justify-center animate-in fade-in duration-500"
-          onDoubleClick={() => setStealthMode(false)}
+          onClick={() => setStealthMode(false)}
         >
+          <button 
+            onClick={(e) => { e.stopPropagation(); setStealthMode(false); }}
+            className="absolute top-8 right-8 text-white/20 hover:text-white/60 transition-colors"
+          >
+            <X size={32} />
+          </button>
           <div className="relative">
              <div className="absolute inset-0 blur-2xl opacity-20 bg-cyber-accent animate-pulse"></div>
              <Leaf className="text-cyber-accent/30 relative" size={64} />
@@ -596,279 +603,86 @@ const App: React.FC = () => {
               {currentTime.getMinutes().toString().padStart(2, '0')}
           </div>
           <p className="text-cyber-accent/10 font-mono text-[10px] tracking-[0.5em] mt-8 uppercase">Gemma Passive Monitoring Active</p>
-          <p className="text-white/5 text-[9px] absolute bottom-12 font-mono">DOUBLE CLICK TO RECALL SYSTEM</p>
+          <p className="text-white/5 text-[9px] absolute bottom-12 font-mono">CLICK ANYWHERE TO RECALL SYSTEM</p>
         </div>
       )}
 
       {/* Header */}
-      <header className="border-b border-white/5 bg-black/40 backdrop-blur-lg p-3 sticky top-0 z-30 flex justify-between items-center px-4 sm:px-6">
+      <header className="fixed top-0 w-full z-50 bg-[#0a0f13]/80 backdrop-blur-xl flex justify-between items-center px-6 h-16 shadow-[0_20px_40px_rgba(0,0,0,0.4)] border-b border-white/5">
         <div className="flex items-center gap-3">
-          <Leaf className="text-cyber-accent w-6 h-6 drop-shadow-[0_0_8px_rgba(132,204,22,0.4)]"/>
-          <h1 className="font-mono font-bold tracking-tighter text-lg bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">CHRONOS <span className="text-cyber-accent">GEMMA</span></h1>
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-secondary-container flex items-center justify-center border border-primary/20">
+            {user.photoURL ? <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" /> : <Activity size={16} className="text-primary" />}
+          </div>
+          <span className="text-xl font-extrabold font-headline text-primary tracking-tight">CHRONOS GEMMA</span>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest">{user.displayName || 'Neural Entity'}</span>
-            <button onClick={handleLogout} className="text-[8px] font-mono text-cyber-accent hover:text-white uppercase tracking-widest">Disconnect</button>
-          </div>
-          <div 
-            onClick={handleLogout}
-            className="w-8 h-8 rounded-full border border-cyber-accent/30 overflow-hidden bg-cyber-accent/10 flex items-center justify-center cursor-pointer hover:border-cyber-accent transition-all"
-          >
-            {user.photoURL ? <img src={user.photoURL} alt="Profile" /> : <Activity size={16} className="text-cyber-accent" />}
-          </div>
+        <div className="flex items-center gap-3">
           <button 
             onClick={() => setStealthMode(!stealthMode)} 
-            className={`p-2 rounded-lg transition-all border ${stealthMode ? 'bg-cyber-accent/20 text-cyber-accent border-cyber-accent/30' : 'text-gray-500 border-white/5 hover:bg-white/5'}`}
-            title="Stealth Mode (Black Screen/Clock)"
+            className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors active:scale-90 duration-200 ${stealthMode ? 'bg-primary/20 text-primary' : 'text-gray-400 hover:bg-white/5'}`}
           >
             {stealthMode ? <Eye size={18} /> : <EyeOff size={18} />}
           </button>
           <button 
             onClick={() => setShowSettings(!showSettings)} 
-            className={`p-2 rounded-lg transition-all border ${showSettings ? 'bg-cyber-accent/20 text-cyber-accent border-cyber-accent/30' : 'text-gray-400 border-white/5 hover:bg-white/5'}`}
-            title="Toggle Settings"
+            className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors active:scale-90 duration-200 ${showSettings ? 'bg-primary/20 text-primary' : 'text-gray-400 hover:bg-white/5'}`}
           >
             <Settings size={18}/>
+          </button>
+          <button 
+            onClick={handleLogout} 
+            className="w-10 h-10 flex items-center justify-center rounded-full transition-colors active:scale-90 duration-200 text-error hover:bg-error/10"
+          >
+            <LogOut size={18}/>
           </button>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden relative">
-        <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto custom-scrollbar">
-            {/* Mobile Tab Switcher */}
-            <div className="lg:hidden flex p-1 bg-black/40 border border-white/5 rounded-xl mb-4">
-              <button 
-                onClick={() => setActiveTab('monitor')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[10px] font-mono uppercase tracking-widest transition-all ${activeTab === 'monitor' ? 'bg-cyber-accent text-black font-bold shadow-lg shadow-cyber-accent/20' : 'text-gray-500 hover:text-gray-300'}`}
-              >
-                <Activity size={14}/> Monitor
-              </button>
-              <button 
-                onClick={() => setActiveTab('timeline')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[10px] font-mono uppercase tracking-widest transition-all ${activeTab === 'timeline' ? 'bg-cyber-accent text-black font-bold shadow-lg shadow-cyber-accent/20' : 'text-gray-500 hover:text-gray-300'}`}
-              >
-                <Clock size={14}/> Timeline
-              </button>
-              <button 
-                onClick={() => setActiveTab('console')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[10px] font-mono uppercase tracking-widest transition-all ${activeTab === 'console' ? 'bg-cyber-accent text-black font-bold shadow-lg shadow-cyber-accent/20' : 'text-gray-500 hover:text-gray-300'}`}
-              >
-                <Terminal size={14}/> Console
-              </button>
-            </div>
-
-            <div className="grid lg:grid-cols-12 gap-6">
-              <div className={`lg:col-span-8 space-y-6 ${activeTab === 'monitor' || activeTab === 'timeline' ? 'block' : 'hidden lg:block'}`}>
-                <div className={`aspect-square sm:aspect-video bg-black rounded-xl overflow-hidden border border-cyber-700/50 relative shadow-2xl group ring-1 ring-white/5 ${activeTab === 'monitor' ? 'block' : 'hidden lg:block'}`}>
-                  {/* Visual Flash Effect */}
-                  <div className={`absolute inset-0 bg-white z-[60] pointer-events-none transition-opacity duration-200 ease-out ${flash ? 'opacity-80' : 'opacity-0'}`}></div>
-
-                  {playbackMode && selectedImage ? (
-                    <img src={selectedImage.dataUrl} className="w-full h-full object-cover" alt="Selected Frame" />
-                  ) : (
-                    <>
-                      <CameraFeed 
-                        ref={cameraRef} 
-                        active={isCameraEnabled && !liveMode} 
-                        facingMode={settings.facingMode} 
-                        resolution={settings.resolution}
-                        onResolutionChange={(res) => setSettings({...settings, resolution: res})}
-                      />
-                    </>
-                  )}
-                
-                {/* Bottom Left Feed Controls */}
-                <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 flex gap-2 sm:gap-3 pointer-events-auto">
-                  <button 
-                    onClick={() => setActive(!active)} 
-                    className={`flex items-center gap-2 px-4 sm:px-8 py-2 sm:py-3 rounded-lg font-bold transition-all shadow-lg text-[10px] sm:text-xs tracking-widest uppercase ${active ? 'bg-cyber-warn text-white shadow-cyber-warn/20 ring-1 ring-red-400/50' : 'bg-cyber-accent text-black shadow-cyber-accent/20 ring-1 ring-lime-400/50'}`}
-                  >
-                    {active ? <Square size={12} fill="currentColor"/> : <Play size={12} fill="currentColor"/>}
-                    {active ? 'Stop' : 'Start'}
-                  </button>
-                  <button 
-                    onClick={() => images.length > 0 && setPlaybackMode(!playbackMode)} 
-                    disabled={images.length === 0} 
-                    className={`flex items-center gap-2 px-3 sm:px-6 py-2 sm:py-3 bg-black/80 border border-cyber-700/50 rounded-lg font-bold transition-all hover:bg-black text-[10px] sm:text-xs uppercase tracking-widest ${playbackMode ? 'text-cyber-accent border-cyber-accent shadow-[0_0_10px_rgba(132,204,22,0.2)]' : 'text-white disabled:opacity-30 disabled:grayscale'}`}
-                  >
-                    <PlayCircle size={14}/> Playback
-                  </button>
-                </div>
-
-                {/* Bottom Right Feed Controls */}
-                <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 flex gap-2 sm:gap-3 pointer-events-auto">
-                  <button 
-                    onClick={() => setIsCameraEnabled(!isCameraEnabled)} 
-                    className={`p-2.5 sm:p-3 rounded-full transition-all border shadow-lg ${isCameraEnabled ? 'bg-cyber-success/10 text-cyber-success border-cyber-success/40' : 'bg-gray-800/50 text-gray-500 border-gray-700'}`}
-                  >
-                    <Power size={18}/>
-                  </button>
-                  <button 
-                    onClick={handleManualCapture} 
-                    className="p-2.5 sm:p-3 bg-white/5 border border-white/10 text-white rounded-full hover:bg-cyber-accent hover:text-black transition-all shadow-lg backdrop-blur-md group"
-                    title="Capture Snapshot"
-                  >
-                    <Camera size={18} className="group-hover:scale-110 transition-transform duration-200"/>
-                  </button>
-                </div>
-              </div>
-
-              {/* Timeline Display */}
-              <div className={`bg-cyber-800/20 p-3 sm:p-5 rounded-xl border border-white/5 backdrop-blur-sm ${activeTab === 'timeline' ? 'block' : 'hidden lg:block'}`}>
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-[10px] font-mono text-gray-500 flex items-center gap-3 uppercase tracking-[0.2em]">
-                    <Clock size={12} className="text-cyber-accent"/> Timeline 
-                    <span className="text-white bg-white/5 px-2 py-0.5 rounded ml-2">{images.length} FRAMES</span>
-                  </h3>
-                  <button 
-                    onClick={purgeSnapshots} 
-                    className="text-[9px] text-gray-500 hover:text-red-500 flex items-center gap-1 uppercase tracking-widest transition-colors"
-                  >
-                    <Trash2 size={10}/> Purge Data
-                  </button>
-                </div>
-
-                {/* Mobile Preview for Timeline Selection */}
-                {activeTab === 'timeline' && selectedImage && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="lg:hidden mb-6 aspect-video rounded-lg overflow-hidden border border-cyber-accent/30 relative shadow-lg"
-                  >
-                    <img src={selectedImage.dataUrl} className="w-full h-full object-cover" alt="Preview" />
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 backdrop-blur-sm flex justify-between items-center">
-                       <span className="text-[10px] font-mono text-cyber-accent">{new Date(selectedImage.timestamp).toLocaleString()}</span>
-                       <button 
-                        onClick={() => { setPlaybackMode(true); setActiveTab('monitor'); }}
-                        className="text-[9px] bg-cyber-accent text-black px-2 py-1 rounded font-bold uppercase"
-                       >
-                         Open in Monitor
-                       </button>
-                    </div>
-                  </motion.div>
-                )}
-
-                <Timeline 
-                  images={images} 
-                  onSelect={(img) => { setPlaybackMode(false); setSelectedImage(img); }} 
-                  onDelete={deleteSnapshot}
-                />
-              </div>
-            </div>
-
-            {/* AI Console Sidebar - Mid-page layout */}
-            <div className={`lg:col-span-4 flex flex-col min-h-[300px] sm:min-h-[500px] ${activeTab === 'console' ? 'block' : 'hidden lg:block'}`}>
-              <div className="flex-1 bg-cyber-800/10 border border-white/5 rounded-xl flex flex-col overflow-hidden backdrop-blur-md shadow-inner">
-                <div className="p-4 bg-black/30 border-b border-white/5 font-mono text-[10px] flex justify-between items-center uppercase tracking-[0.1em]">
-                  <span className="text-gray-400 flex items-center gap-2"><Terminal size={12}/> Console // Gemma v3.1</span>
-                  <button 
-                    onClick={() => images.length > 0 && generateGrowthReport(images.map(i => i.analysis || ""))} 
-                    className="text-cyber-accent hover:text-white flex items-center gap-1.5 transition-colors"
-                  >
-                    <FileText size={12}/> Gen Report
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar text-justify leading-relaxed">
-                  {chatMessages.length === 0 && (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-700 opacity-40">
-                      <BrainCircuit size={48} className="mb-4 text-cyber-accent/20" />
-                      <p className="text-[10px] font-mono text-center tracking-widest uppercase">Awaiting Neural Input...</p>
-                    </div>
-                  )}
-                  {chatMessages.map(m => (
-                    <div key={m.id} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                      <div className={`p-3.5 rounded-xl text-xs sm:text-sm max-w-[95%] shadow-sm ${m.role === 'user' ? 'bg-cyber-700/80 text-white border border-cyber-accent/20' : 'bg-black/50 border border-white/5 text-gray-300'}`}>
-                        <div className="flex justify-between items-start gap-4 mb-2">
-                          <span className={`text-[9px] font-mono uppercase tracking-widest ${m.role === 'user' ? 'text-cyber-accent' : 'text-blue-400'}`}>
-                            {m.role === 'user' ? 'Neural Entity' : 'Gemma Core'}
-                          </span>
-                          {m.role === 'model' && (
-                            <button 
-                              onClick={() => handleSpeak(m.text, m.id)}
-                              className={`p-1 rounded hover:bg-white/5 transition-colors ${speakingMessageId === m.id ? 'text-cyber-accent' : 'text-gray-500'}`}
-                            >
-                              <Volume2 size={14} className={speakingMessageId === m.id ? 'animate-pulse' : ''} />
-                            </button>
-                          )}
-                        </div>
-                        <div className="markdown-body">
-                          <Markdown>{m.text}</Markdown>
-                        </div>
-                        {m.imageUrl && (
-                          <img src={m.imageUrl} alt="Generated" className="mt-3 rounded-lg border border-white/10 max-w-full" referrerPolicy="no-referrer" />
-                        )}
-                        {m.groundingUrls && m.groundingUrls.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-white/5 space-y-1">
-                            <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Sources:</p>
-                            {m.groundingUrls.map((url, i) => (
-                              <a key={i} href={url.uri} target="_blank" rel="noopener noreferrer" className="text-[10px] text-cyber-accent hover:underline flex items-center gap-1">
-                                <Globe size={10} /> {url.title || url.uri}
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <span className="text-[8px] mt-1 text-gray-600 font-mono px-1">{new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-                    </div>
-                  ))}
-                  {isProcessing && (
-                    <div className="flex items-center gap-2 text-[10px] font-mono text-cyber-accent/60 animate-pulse bg-cyber-accent/5 px-3 py-1.5 rounded-full border border-cyber-accent/10">
-                      <Cpu size={12} className="animate-spin" /> {useThinking ? 'Deep Neural Processing Engine Running...' : 'Neural Processing Engine Running...'}
-                    </div>
-                  )}
-                </div>
-                <form onSubmit={handleChatSubmit} className="p-4 bg-black/40 border-t border-white/5">
-                   <div className="relative group">
-                    <input 
-                      type="text" 
-                      value={userInput} 
-                      onChange={e => setUserInput(e.target.value)} 
-                      placeholder="Query the Gemma network..." 
-                      className="w-full bg-black/50 border border-white/10 rounded-lg py-3 px-4 text-sm focus:outline-none focus:border-cyber-accent/50 focus:ring-1 focus:ring-cyber-accent/20 text-white transition-all placeholder:text-gray-600"
-                    />
-                    <div className="absolute right-3 top-2.5 flex items-center gap-2">
-                      <button 
-                        type="button" 
-                        onClick={handleGenerateImage}
-                        disabled={isProcessing} 
-                        className="text-gray-500 hover:text-cyber-accent transition-colors disabled:opacity-20"
-                        title="Generate Image"
-                      >
-                        <Sun size={18}/>
-                      </button>
-                      <button type="submit" disabled={isProcessing} className="text-cyber-accent/50 hover:text-cyber-accent transition-colors disabled:opacity-20">
-                        <MessageSquare size={18}/>
-                      </button>
-                    </div>
-                   </div>
-                   <div className="flex gap-4 mt-3 px-1">
-                      <button 
-                        type="button"
-                        onClick={() => setUseThinking(!useThinking)}
-                        className={`flex items-center gap-2 transition-colors ${useThinking ? 'text-cyber-accent' : 'text-gray-600 hover:text-gray-400'}`}
-                      >
-                        <BrainCircuit size={12}/><span className="text-[9px] font-mono">THINK</span>
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => setUseSearch(!useSearch)}
-                        className={`flex items-center gap-2 transition-colors ${useSearch ? 'text-cyber-accent' : 'text-gray-600 hover:text-gray-400'}`}
-                      >
-                        <Globe size={12}/><span className="text-[9px] font-mono">SEARCH</span>
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => setUseMaps(!useMaps)}
-                        className={`flex items-center gap-2 transition-colors ${useMaps ? 'text-cyber-accent' : 'text-gray-600 hover:text-gray-400'}`}
-                      >
-                        <MapPin size={12}/><span className="text-[9px] font-mono">MAPS</span>
-                      </button>
-                   </div>
-                </form>
-              </div>
-            </div>
-          </div>
+        <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto custom-scrollbar pt-20 pb-32 max-w-7xl mx-auto w-full">
+          {activeTab === 'home' && <HomeTab images={images} active={active} setActive={setActive} />}
+          {activeTab === 'scan' && (
+            <ScanTab 
+              cameraRef={cameraRef} 
+              isCameraEnabled={isCameraEnabled} 
+              liveMode={liveMode} 
+              setLiveMode={setLiveMode}
+              settings={settings} 
+              setSettings={setSettings} 
+              active={active} 
+              setActive={setActive} 
+              handleManualCapture={handleManualCapture} 
+              flash={flash} 
+              images={images} 
+            />
+          )}
+          {activeTab === 'plants' && (
+            <PlantsTab 
+              images={images} 
+              setSelectedImage={setSelectedImage} 
+              setPlaybackMode={setPlaybackMode} 
+              deleteSnapshot={deleteSnapshot} 
+            />
+          )}
+          {activeTab === 'schedule' && (
+            <ScheduleTab 
+              chatMessages={chatMessages} 
+              userInput={userInput} 
+              setUserInput={setUserInput} 
+              handleChatSubmit={handleChatSubmit} 
+              handleGenerateImage={handleGenerateImage} 
+              isProcessing={isProcessing} 
+              useThinking={useThinking} 
+              setUseThinking={setUseThinking} 
+              useSearch={useSearch} 
+              setUseSearch={setUseSearch} 
+              useMaps={useMaps} 
+              setUseMaps={setUseMaps} 
+              handleSpeak={handleSpeak} 
+              speakingMessageId={speakingMessageId} 
+              generateGrowthReport={generateGrowthReport} 
+              images={images} 
+            />
+          )}
         </main>
 
         {/* System Config Sidebar - Styled exactly as requested */}
@@ -1178,6 +992,38 @@ const App: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Bottom Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pt-3 pb-6 bg-[#0a0f13]/90 backdrop-blur-xl z-50 rounded-t-[2.5rem] shadow-[0_-10px_30px_rgba(0,0,0,0.5)] border-t border-white/5">
+        <button 
+          onClick={() => setActiveTab('home')}
+          className={`flex flex-col items-center justify-center px-5 py-2 rounded-2xl transition-all duration-300 active:scale-95 ${activeTab === 'home' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(184,253,75,0.15)]' : 'text-gray-500 hover:text-primary'}`}
+        >
+          <Activity size={24} className={activeTab === 'home' ? 'drop-shadow-[0_0_8px_rgba(184,253,75,0.4)]' : ''} />
+          <span className="font-label text-[10px] uppercase tracking-widest mt-1 font-bold">Home</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('plants')}
+          className={`flex flex-col items-center justify-center px-5 py-2 rounded-2xl transition-all duration-300 active:scale-95 ${activeTab === 'plants' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(184,253,75,0.15)]' : 'text-gray-500 hover:text-primary'}`}
+        >
+          <Leaf size={24} className={activeTab === 'plants' ? 'drop-shadow-[0_0_8px_rgba(184,253,75,0.4)]' : ''} />
+          <span className="font-label text-[10px] uppercase tracking-widest mt-1 font-bold">Plants</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('scan')}
+          className={`flex flex-col items-center justify-center px-5 py-2 rounded-2xl transition-all duration-300 active:scale-95 ${activeTab === 'scan' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(184,253,75,0.15)]' : 'text-gray-500 hover:text-primary'}`}
+        >
+          <Camera size={24} className={activeTab === 'scan' ? 'drop-shadow-[0_0_8px_rgba(184,253,75,0.4)]' : ''} />
+          <span className="font-label text-[10px] uppercase tracking-widest mt-1 font-bold">Scan</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('schedule')}
+          className={`flex flex-col items-center justify-center px-5 py-2 rounded-2xl transition-all duration-300 active:scale-95 ${activeTab === 'schedule' ? 'bg-primary/10 text-primary shadow-[0_0_15px_rgba(184,253,75,0.15)]' : 'text-gray-500 hover:text-primary'}`}
+        >
+          <Terminal size={24} className={activeTab === 'schedule' ? 'drop-shadow-[0_0_8px_rgba(184,253,75,0.4)]' : ''} />
+          <span className="font-label text-[10px] uppercase tracking-widest mt-1 font-bold">Console</span>
+        </button>
+      </nav>
     </div>
   );
 };

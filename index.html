@@ -1,31 +1,85 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#020617" />
+    <meta name="theme-color" content="#0a0f13" />
     <title>Chronos Gemma</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <script>
       tailwind.config = {
+        darkMode: "class",
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              mono: ['JetBrains Mono', 'monospace'],
+              headline: ["Manrope", "sans-serif"],
+              body: ["Inter", "sans-serif"],
+              label: ["Space Grotesk", "sans-serif"]
             },
             colors: {
-              cyber: {
-                900: '#020617', // Slate 950
-                800: '#14532d', // Green 900
-                700: '#166534', // Green 800
-                accent: '#84cc16', // Lime 500
-                warn: '#ef4444', // Red 500
-                success: '#22d3ee' // Cyan 400
+              "tertiary-container": "#65fde6",
+              "surface-container-highest": "#21262c",
+              "secondary-fixed": "#d3e8d5",
+              "on-secondary": "#435647",
+              "on-primary": "#3d5e00",
+              "tertiary-fixed": "#65fde6",
+              "inverse-on-surface": "#51555a",
+              "tertiary": "#c6fff3",
+              "on-tertiary-fixed-variant": "#00695e",
+              "surface-bright": "#262d33",
+              "surface-dim": "#0a0f13",
+              "on-tertiary-container": "#005e54",
+              "secondary-dim": "#c5dac7",
+              "primary-fixed-dim": "#aaee3d",
+              "on-secondary-container": "#c0d6c3",
+              "surface-container-lowest": "#000000",
+              "surface-container-high": "#1b2026",
+              "primary-container": "#83c300",
+              "outline": "#72767b",
+              "error-dim": "#d53d18",
+              "on-tertiary-fixed": "#004a41",
+              "background": "#0a0f13",
+              "secondary-container": "#394b3d",
+              "surface-container": "#151a1f",
+              "secondary-fixed-dim": "#c5dac7",
+              "surface-variant": "#21262c",
+              "primary-fixed": "#b8fd4b",
+              "inverse-surface": "#f7f9ff",
+              "on-primary-fixed": "#304a00",
+              "error": "#ff7351",
+              "error-container": "#b92902",
+              "on-tertiary": "#00685c",
+              "outline-variant": "#44484d",
+              "on-surface": "#f1f4fa",
+              "on-primary-container": "#223600",
+              "surface-tint": "#b8fd4b",
+              "primary": "#b8fd4b",
+              "surface": "#0a0f13",
+              "on-background": "#f1f4fa",
+              "on-primary-fixed-variant": "#456900",
+              "tertiary-fixed-dim": "#54eed8",
+              "on-secondary-fixed": "#314436",
+              "tertiary-dim": "#48e5d0",
+              "on-secondary-fixed-variant": "#4d6051",
+              "on-error-container": "#ffd2c8",
+              "surface-container-low": "#0f1418",
+              "on-error": "#450900",
+              "secondary": "#d3e8d5",
+              "inverse-primary": "#456900",
+              "on-surface-variant": "#a8abb1",
+              "primary-dim": "#aaee3d",
+              "cyber": {
+                900: '#0a0f13',
+                800: '#151a1f',
+                700: '#1b2026',
+                accent: '#b8fd4b',
+                warn: '#ff7351',
+                success: '#65fde6'
               }
             }
           }
@@ -34,8 +88,12 @@
     </script>
     <style>
       body {
-        background-color: #020617;
-        color: #e2e8f0;
+        background-color: #0a0f13;
+        color: #f1f4fa;
+        font-family: 'Inter', sans-serif;
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
       }
       /* Custom scrollbar */
       ::-webkit-scrollbar {
@@ -43,14 +101,30 @@
         height: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: #020617;
+        background: #0a0f13;
       }
       ::-webkit-scrollbar-thumb {
-        background: #166534;
+        background: #394b3d;
         border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #84cc16;
+        background: #b8fd4b;
+      }
+      .grain-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 9999;
+        opacity: 0.03;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+      }
+      .glass-panel {
+        background: rgba(21, 26, 31, 0.6);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
       }
     </style>
   <script type="importmap">
@@ -64,7 +138,6 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <div id="root"></div>
