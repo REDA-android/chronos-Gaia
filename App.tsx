@@ -541,12 +541,12 @@ const App: React.FC = () => {
           className="max-w-md w-full bg-black/40 backdrop-blur-xl border border-white/5 p-10 rounded-3xl shadow-2xl text-center space-y-8"
         >
           <div className="flex justify-center">
-            <div className="p-4 bg-cyber-accent/10 rounded-full ring-1 ring-cyber-accent/30 shadow-[0_0_30px_rgba(132,204,22,0.2)]">
-              <Leaf className="text-cyber-accent" size={48} />
+            <div className="p-4 bg-primary/10 rounded-full ring-1 ring-primary/30 shadow-[0_0_30px_rgba(192,254,113,0.2)]">
+              <Leaf className="text-primary" size={48} />
             </div>
           </div>
           <div className="space-y-2">
-            <h1 className="text-3xl font-mono font-bold tracking-tighter">CHRONOS <span className="text-cyber-accent">GEMMA</span></h1>
+            <h1 className="text-3xl font-mono font-bold tracking-tighter">CHRONOS <span className="text-primary">GEMMA</span></h1>
             <p className="text-gray-500 text-sm font-mono tracking-widest uppercase">Neural Plant Monitoring System</p>
           </div>
           <p className="text-gray-400 text-sm leading-relaxed">
@@ -554,7 +554,7 @@ const App: React.FC = () => {
           </p>
           <button 
             onClick={handleLogin}
-            className="w-full py-4 bg-cyber-accent text-black font-bold rounded-xl hover:bg-white transition-all shadow-lg shadow-cyber-accent/20 flex items-center justify-center gap-3 group"
+            className="w-full py-4 bg-primary text-[#04110c] font-bold rounded-xl hover:bg-primary-dim transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 group"
           >
             <Globe size={20} className="group-hover:rotate-12 transition-transform" />
             CONNECT WITH GOOGLE
@@ -594,15 +594,15 @@ const App: React.FC = () => {
             <X size={32} />
           </button>
           <div className="relative">
-             <div className="absolute inset-0 blur-2xl opacity-20 bg-cyber-accent animate-pulse"></div>
-             <Leaf className="text-cyber-accent/30 relative" size={64} />
+             <div className="absolute inset-0 blur-2xl opacity-20 bg-primary animate-pulse"></div>
+             <Leaf className="text-primary relative" size={64} />
           </div>
           <div className="text-[18vw] sm:text-[120px] font-mono font-thin text-white/5 tracking-tighter tabular-nums leading-none mt-8">
               {currentTime.getHours().toString().padStart(2, '0')}
               <span className="animate-pulse">:</span>
               {currentTime.getMinutes().toString().padStart(2, '0')}
           </div>
-          <p className="text-cyber-accent/10 font-mono text-[10px] tracking-[0.5em] mt-8 uppercase">Gemma Passive Monitoring Active</p>
+          <p className="text-primary font-mono text-[10px] tracking-[0.5em] mt-8 uppercase">Gemma Passive Monitoring Active</p>
           <p className="text-white/5 text-[9px] absolute bottom-12 font-mono">CLICK ANYWHERE TO RECALL SYSTEM</p>
         </div>
       )}

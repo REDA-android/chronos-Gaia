@@ -31,7 +31,7 @@ export const HomeTab = ({ images, active, setActive }: any) => {
             <svg className="w-full h-full -rotate-90">
               <circle className="text-white/10" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" strokeWidth="8"></circle>
               <circle 
-                className="text-white transition-all duration-1000" 
+                className="text-primary transition-all duration-1000" 
                 cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" 
                 strokeDasharray="364.4" 
                 strokeDashoffset={364.4 - (364.4 * healthScore / 100)} 
@@ -39,12 +39,12 @@ export const HomeTab = ({ images, active, setActive }: any) => {
               ></circle>
             </svg>
             <div className="absolute inset-0 flex items-center justify-center flex-col">
-              <span className="text-2xl font-bold font-headline">{healthScore}%</span>
+              <span className="text-2xl font-bold font-headline text-primary">{healthScore}%</span>
             </div>
           </div>
         </div>
         <div className="absolute -right-10 -bottom-10 opacity-20 pointer-events-none">
-          <Leaf size={160} />
+          <Leaf size={160} className="text-primary" />
         </div>
       </section>
 

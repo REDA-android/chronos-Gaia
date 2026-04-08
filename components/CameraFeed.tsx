@@ -70,6 +70,7 @@ const CameraFeed = forwardRef<CameraHandle, CameraFeedProps>(({ active, facingMo
 
       let stream: MediaStream;
       try {
+        // Try with specific facing mode and resolution first
         stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             facingMode: facingMode,
@@ -78,17 +79,20 @@ const CameraFeed = forwardRef<CameraHandle, CameraFeedProps>(({ active, facingMo
           audio: false 
         });
       } catch (innerErr: any) {
-        // Fallback to any available camera if specific facingMode fails
-        if (innerErr.name === 'NotFoundError' || innerErr.name === 'DevicesNotFoundError') {
-          console.warn("Requested facingMode not found, falling back to default camera.");
+        console.warn("Initial camera request failed, trying fallback constraints.", innerErr);
+        // Fallback 1: Try just the facing mode without resolution constraints
+        try {
           stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-              ...resConstraints
-            }, 
+            video: { facingMode: facingMode }, 
             audio: false 
           });
-        } else {
-          throw innerErr;
+        } catch (fallbackErr: any) {
+           console.warn("Fallback 1 failed, trying any available camera.", fallbackErr);
+           // Fallback 2: Try any available camera
+           stream = await navigator.mediaDevices.getUserMedia({ 
+             video: true, 
+             audio: false 
+           });
         }
       }
 
