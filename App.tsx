@@ -692,17 +692,17 @@ const App: React.FC = () => {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setShowSettings(false)}
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden"
               />
               <motion.aside 
                 initial={{ x: 320, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: 320, opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="w-[300px] sm:w-[320px] fixed lg:relative inset-y-0 right-0 lg:inset-auto border-l border-white/10 bg-[#0a0f1a] p-5 sm:p-6 overflow-y-auto custom-scrollbar shadow-2xl z-40"
+                className="w-[300px] sm:w-[320px] fixed lg:relative inset-y-0 right-0 lg:inset-auto border-l border-white/10 bg-[#0a0f1a] p-5 sm:p-6 overflow-y-auto custom-scrollbar shadow-2xl z-[70]"
               >
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-[13px] font-mono font-bold text-cyber-accent flex items-center gap-2 uppercase tracking-[0.1em]"><Settings size={16}/> System Config</h2>
+                <h2 className="text-[13px] font-mono font-bold text-primary flex items-center gap-2 uppercase tracking-[0.1em]"><Settings size={16}/> System Config</h2>
                 <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-white transition-colors"><X size={18}/></button>
               </div>
 
@@ -711,7 +711,7 @@ const App: React.FC = () => {
               <section className="space-y-4">
                 <div className="flex justify-between items-center text-[10px] font-mono uppercase tracking-[0.1em]">
                   <span className="text-gray-500 flex items-center gap-2 font-bold"><Clock size={12}/> Capture Frequency</span>
-                  <span className="text-cyber-accent font-bold">{settings.intervalHours}h</span>
+                  <span className="text-primary font-bold">{settings.intervalHours}h</span>
                 </div>
                 <div className="relative py-2">
                   <input 
@@ -719,7 +719,7 @@ const App: React.FC = () => {
                     min="0.1" max="24" step="0.1" 
                     value={settings.intervalHours} 
                     onChange={e => setSettings({...settings, intervalHours: parseFloat(e.target.value)})} 
-                    className="w-full h-1 bg-[#1a2333] rounded-lg appearance-none cursor-pointer accent-cyber-accent"
+                    className="w-full h-1 bg-[#1a2333] rounded-lg appearance-none cursor-pointer accent-primary"
                   />
                   <div className="flex justify-between mt-2 text-[8px] text-gray-600 font-mono">
                     <span>0.1</span>
@@ -732,7 +732,7 @@ const App: React.FC = () => {
               <section className="space-y-4">
                 <div className="flex justify-between items-center text-[10px] font-mono uppercase tracking-[0.1em]">
                   <span className="text-gray-500 flex items-center gap-2 font-bold"><Activity size={12}/> Min. Confidence</span>
-                  <span className="text-cyber-accent font-bold">{settings.minConfidenceThreshold}%</span>
+                  <span className="text-primary font-bold">{settings.minConfidenceThreshold}%</span>
                 </div>
                 <div className="relative py-2">
                   <input 
@@ -740,7 +740,7 @@ const App: React.FC = () => {
                     min="1" max="100" step="1" 
                     value={settings.minConfidenceThreshold} 
                     onChange={e => setSettings({...settings, minConfidenceThreshold: parseInt(e.target.value)})} 
-                    className="w-full h-1 bg-[#1a2333] rounded-lg appearance-none cursor-pointer accent-cyber-accent"
+                    className="w-full h-1 bg-[#1a2333] rounded-lg appearance-none cursor-pointer accent-primary"
                   />
                 </div>
               </section>
@@ -753,7 +753,7 @@ const App: React.FC = () => {
                     <button 
                       key={p} 
                       onClick={() => setSettings({...settings, timestampPrecision: p.toLowerCase() as any})} 
-                      className={`py-1.5 text-[10px] rounded uppercase font-bold transition-all ${settings.timestampPrecision === p.toLowerCase() ? 'bg-cyber-accent text-black shadow-lg shadow-cyber-accent/20' : 'text-gray-500 hover:text-white'}`}
+                      className={`py-1.5 text-[10px] rounded uppercase font-bold transition-all ${settings.timestampPrecision === p.toLowerCase() ? 'bg-primary text-[#04110c] shadow-lg shadow-primary/20' : 'text-gray-500 hover:text-white'}`}
                     >
                       {p}
                     </button>
@@ -768,7 +768,7 @@ const App: React.FC = () => {
                   <span className="text-[11px] font-bold text-gray-300">Auto-Analyze Snapshots</span>
                   <button 
                     onClick={() => setSettings({...settings, autoAnalyze: !settings.autoAnalyze})} 
-                    className={`w-9 h-5 rounded-full relative transition-all duration-300 ${settings.autoAnalyze ? 'bg-cyber-accent shadow-[0_0_12px_rgba(132,204,22,0.4)]' : 'bg-gray-700'}`}
+                    className={`w-9 h-5 rounded-full relative transition-all duration-300 ${settings.autoAnalyze ? 'bg-primary shadow-[0_0_12px_rgba(192,254,113,0.4)]' : 'bg-gray-700'}`}
                   >
                     <div className={`absolute top-1 w-3 h-3 rounded-full bg-white shadow-sm transition-all duration-300 ${settings.autoAnalyze ? 'right-1' : 'left-1'}`}></div>
                   </button>
@@ -781,13 +781,13 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-2 gap-1.5">
                   <button 
                     onClick={() => setSettings({...settings, facingMode: 'environment'})} 
-                    className={`py-2.5 text-[10px] rounded uppercase font-bold transition-all border ${settings.facingMode === 'environment' ? 'bg-cyber-accent text-black border-transparent shadow-lg shadow-cyber-accent/20' : 'bg-black/20 text-gray-500 border-white/5 hover:border-white/20'}`}
+                    className={`py-2.5 text-[10px] rounded uppercase font-bold transition-all border ${settings.facingMode === 'environment' ? 'bg-primary text-[#04110c] border-transparent shadow-lg shadow-primary/20' : 'bg-black/20 text-gray-500 border-white/5 hover:border-white/20'}`}
                   >
                     Macro (Rear)
                   </button>
                   <button 
                     onClick={() => setSettings({...settings, facingMode: 'user'})} 
-                    className={`py-2.5 text-[10px] rounded uppercase font-bold transition-all border ${settings.facingMode === 'user' ? 'bg-cyber-accent text-black border-transparent shadow-lg shadow-cyber-accent/20' : 'bg-black/20 text-gray-500 border-white/5 hover:border-white/20'}`}
+                    className={`py-2.5 text-[10px] rounded uppercase font-bold transition-all border ${settings.facingMode === 'user' ? 'bg-primary text-[#04110c] border-transparent shadow-lg shadow-primary/20' : 'bg-black/20 text-gray-500 border-white/5 hover:border-white/20'}`}
                   >
                     Selfie (Front)
                   </button>
@@ -797,7 +797,7 @@ const App: React.FC = () => {
                     <button 
                       key={r} 
                       onClick={() => setSettings({...settings, resolution: r})} 
-                      className={`py-1.5 text-[9px] rounded uppercase font-bold border transition-all ${settings.resolution === r ? 'bg-cyber-success text-black border-transparent shadow-[0_0_12px_rgba(34,211,238,0.3)]' : 'border-white/5 text-gray-500 hover:text-white'}`}
+                      className={`py-1.5 text-[9px] rounded uppercase font-bold border transition-all ${settings.resolution === r ? 'bg-primary text-[#04110c] border-transparent shadow-[0_0_12px_rgba(192,254,113,0.3)]' : 'border-white/5 text-gray-500 hover:text-white'}`}
                     >
                       {r}
                     </button>
@@ -809,20 +809,20 @@ const App: React.FC = () => {
               <section className="space-y-4">
                 <div className="flex justify-between items-center text-[10px] font-mono uppercase tracking-[0.1em]">
                   <span className="text-gray-500 flex items-center gap-2 font-bold"><FastForward size={12}/> Playback Speed</span>
-                  <span className="text-cyber-success font-bold">{settings.playbackFps} FPS</span>
+                  <span className="text-primary font-bold">{settings.playbackFps} FPS</span>
                 </div>
                 <input 
                   type="range" 
                   min="1" max="60" step="1" 
                   value={settings.playbackFps} 
                   onChange={e => setSettings({...settings, playbackFps: parseInt(e.target.value)})} 
-                  className="w-full h-1 bg-[#1a2333] rounded-lg appearance-none cursor-pointer accent-cyber-success"
+                  className="w-full h-1 bg-[#1a2333] rounded-lg appearance-none cursor-pointer accent-primary"
                 />
                 <div className="flex items-center justify-between p-3.5 bg-black/40 rounded border border-white/5 group">
                   <span className="text-[11px] font-bold text-gray-300">Auto-Advance Slideshow</span>
                   <button 
                     onClick={() => setSettings({...settings, autoAdvance: !settings.autoAdvance})} 
-                    className={`w-9 h-5 rounded-full relative transition-all duration-300 ${settings.autoAdvance ? 'bg-cyber-success shadow-[0_0_12px_rgba(34,211,238,0.4)]' : 'bg-gray-700'}`}
+                    className={`w-9 h-5 rounded-full relative transition-all duration-300 ${settings.autoAdvance ? 'bg-primary shadow-[0_0_12px_rgba(192,254,113,0.4)]' : 'bg-gray-700'}`}
                   >
                     <div className={`absolute top-1 w-3 h-3 rounded-full bg-white shadow-sm transition-all duration-300 ${settings.autoAdvance ? 'right-1' : 'left-1'}`}></div>
                   </button>
@@ -856,7 +856,7 @@ const App: React.FC = () => {
                 </button>
                 <button 
                   onClick={() => setShowOnboarding(true)}
-                  className="w-full py-2.5 bg-cyber-accent/10 border border-cyber-accent/20 text-cyber-accent rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-cyber-accent/20 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-primary/10 border border-primary/20 text-primary rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center justify-center gap-2"
                 >
                   <HelpCircle size={14}/> Replay Tutorial
                 </button>
@@ -871,12 +871,12 @@ const App: React.FC = () => {
       {/* Background Monitoring Indicator */}
       {active && !stealthMode && (
         <div className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 z-20 pointer-events-none">
-          <div className="flex items-center gap-3 bg-black/80 backdrop-blur-md px-3 sm:px-4 py-2 rounded-full border border-cyber-accent/30 shadow-2xl">
+          <div className="flex items-center gap-3 bg-black/80 backdrop-blur-md px-3 sm:px-4 py-2 rounded-full border border-primary/30 shadow-2xl">
              <div className="relative">
-                <div className="w-2.5 h-2.5 rounded-full bg-cyber-accent animate-ping absolute"></div>
-                <div className="w-2.5 h-2.5 rounded-full bg-cyber-accent relative"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-primary animate-ping absolute"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-primary relative"></div>
              </div>
-             <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-cyber-accent">SYSTEM ACTIVE // MONITORING CYCLE {settings.intervalHours}H</span>
+             <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-primary">SYSTEM ACTIVE // MONITORING CYCLE {settings.intervalHours}H</span>
           </div>
         </div>
       )}

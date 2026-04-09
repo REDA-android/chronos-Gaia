@@ -97,7 +97,7 @@ export const sendMessage = async (
     console.error("Chat Error:", error);
     if (error.message?.includes('API_KEY_INVALID')) throw new Error("Invalid API Key. Please check your configuration.");
     if (error.message?.includes('quota')) throw new Error("API Quota Exceeded. Please try again later.");
-    throw new Error("Neural Link Failed. Check your network connection.");
+    throw new Error(`Neural Link Failed: ${error.message || 'Unknown network error'}`);
   }
 };
 
@@ -125,7 +125,7 @@ export const generateImage = async (prompt: string, aspectRatio: string = "1:1")
     throw new Error("No image generated.");
   } catch (error: any) {
     console.error("Image Generation Error:", error);
-    throw new Error("Visual synthesis failed. Check your API key or quota.");
+    throw new Error(`Visual synthesis failed: ${error.message || 'Unknown error'}`);
   }
 };
 
@@ -148,7 +148,7 @@ export const analyzeImage = async (base64Data: string, prompt: string, plantType
     console.error("Analysis Error:", error);
     if (error.message?.includes('API_KEY_INVALID')) throw new Error("Invalid API Key. Please check your configuration.");
     if (error.message?.includes('quota')) throw new Error("API Quota Exceeded. Please try again later.");
-    throw new Error("Optical Analysis Failed. Check your network connection.");
+    throw new Error(`Optical Analysis Failed: ${error.message || 'Unknown network error'}`);
   }
 };
 
