@@ -525,8 +525,8 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-cyber-900 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Leaf className="text-cyber-accent animate-pulse" size={48} />
-          <p className="text-cyber-accent font-mono text-xs tracking-widest uppercase">INITIALIZING GEMMA...</p>
+          <Leaf className="text-primary animate-pulse" size={48} />
+          <p className="text-primary font-mono text-xs tracking-widest uppercase">INITIALIZING GEMMA...</p>
         </div>
       </div>
     );
