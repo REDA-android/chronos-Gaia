@@ -11,34 +11,34 @@ interface TimelineProps {
 const Timeline: React.FC<TimelineProps> = ({ images, onSelect, onDelete }) => {
   const getHealthColor = (img: CapturedImage) => {
     // Priority: Explicit Metadata -> Text Analysis -> Default
-    if (img.healthStatus === 'CRITICAL') return 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.4)]';
+    if (img.healthStatus === 'CRITICAL') return 'border-error shadow-[0_0_10px_rgba(255,113,108,0.4)]';
     if (img.healthStatus === 'STRESSED') return 'border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.4)]';
-    if (img.healthStatus === 'HEALTHY') return 'border-cyber-accent shadow-[0_0_10px_rgba(132,204,22,0.4)]';
+    if (img.healthStatus === 'HEALTHY') return 'border-primary shadow-[0_0_10px_rgba(221,255,175,0.4)]';
 
-    if (!img.analysis) return 'border-cyber-700';
+    if (!img.analysis) return 'border-outline-variant';
     
     // Fallback legacy analysis
     const t = img.analysis.toLowerCase();
-    if (t.includes('dead') || t.includes('disease') || t.includes('pest') || t.includes('rot') || t.includes('critical')) return 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.4)]';
+    if (t.includes('dead') || t.includes('disease') || t.includes('pest') || t.includes('rot') || t.includes('critical')) return 'border-error shadow-[0_0_10px_rgba(255,113,108,0.4)]';
     if (t.includes('wilt') || t.includes('yellow') || t.includes('dry') || t.includes('spot')) return 'border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.4)]';
-    return 'border-cyber-accent shadow-[0_0_10px_rgba(132,204,22,0.4)]';
+    return 'border-primary shadow-[0_0_10px_rgba(221,255,175,0.4)]';
   };
 
   const getStageIcon = (stage?: string) => {
     if (!stage) return null;
     const s = stage.toLowerCase();
-    if (s.includes('germinat') || s.includes('seed') || s.includes('sprout')) return <Sprout size={12} className="text-cyber-accent" />;
+    if (s.includes('germinat') || s.includes('seed') || s.includes('sprout')) return <Sprout size={12} className="text-primary" />;
     if (s.includes('flower') || s.includes('bloom') || s.includes('bud')) return <Flower size={12} className="text-pink-400" />;
     if (s.includes('fruit') || s.includes('harvest') || s.includes('mature')) return <Sun size={12} className="text-orange-400" />;
-    if (s.includes('veg') || s.includes('leaf')) return <Leaf size={12} className="text-green-400" />;
-    return <HelpCircle size={12} className="text-gray-400" />;
+    if (s.includes('veg') || s.includes('leaf')) return <Leaf size={12} className="text-primary-dim" />;
+    return <HelpCircle size={12} className="text-on-surface-variant" />;
   };
 
   if (images.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-48 text-gray-500 border border-dashed border-cyber-700 rounded-lg">
+      <div className="flex flex-col items-center justify-center h-48 text-on-surface-variant border border-dashed border-outline-variant rounded-[24px]">
         <Clock className="mb-2 opacity-50" />
-        <p>No snapshots yet.</p>
+        <p className="font-body text-sm">No snapshots yet.</p>
       </div>
     );
   }
@@ -49,14 +49,14 @@ const Timeline: React.FC<TimelineProps> = ({ images, onSelect, onDelete }) => {
         {[...images].reverse().map((img) => (
           <div 
             key={img.id} 
-            className="group relative w-36 h-24 sm:w-48 sm:h-32 rounded-lg overflow-hidden border-2 transition-all hover:scale-105"
+            className="group relative w-36 h-24 sm:w-48 sm:h-32 rounded-[16px] overflow-hidden border-2 transition-all hover:scale-105"
           >
             <div 
               onClick={() => onSelect(img)}
               className={`w-full h-full cursor-pointer ${getHealthColor(img)}`}
             >
               <img src={img.dataUrl} alt="Snapshot" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/40 group-hover:bg-black/0 transition-colors"></div>
+              <div className="absolute inset-0 bg-background/40 group-hover:bg-background/0 transition-colors"></div>
             </div>
             
             {/* Action Buttons */}
@@ -64,7 +64,7 @@ const Timeline: React.FC<TimelineProps> = ({ images, onSelect, onDelete }) => {
               {onDelete && (
                 <button 
                   onClick={(e) => { e.stopPropagation(); onDelete(img.id); }}
-                  className="bg-red-500/80 text-white p-1 rounded-full hover:bg-red-600 shadow-lg"
+                  className="bg-error/80 text-on-error p-1 rounded-full hover:bg-error shadow-lg"
                   title="Delete Frame"
                 >
                   <Trash2 size={10} />
@@ -74,7 +74,7 @@ const Timeline: React.FC<TimelineProps> = ({ images, onSelect, onDelete }) => {
                 href={img.dataUrl} 
                 download={`gemma-snapshot-${img.id}.jpg`}
                 onClick={(e) => e.stopPropagation()}
-                className="bg-cyber-accent/80 text-black p-1 rounded-full hover:bg-cyber-accent shadow-lg"
+                className="bg-primary/80 text-background p-1 rounded-full hover:bg-primary shadow-lg"
                 title="Download Frame"
               >
                 <Download size={10} />
@@ -83,15 +83,22 @@ const Timeline: React.FC<TimelineProps> = ({ images, onSelect, onDelete }) => {
 
             {/* Analysis Available Indicator */}
             {img.analysis && (
-               <div className="absolute top-2 right-2 bg-cyber-accent text-black rounded-full p-1 shadow-[0_0_10px_#84cc16] animate-pulse z-10">
+               <div className="absolute top-2 right-2 bg-primary text-background rounded-full p-1 shadow-[0_0_10px_#ddffaf] animate-pulse z-10">
                  <Eye size={10} />
+               </div>
+            )}
+
+            {/* Location Indicator */}
+            {img.location && (
+               <div className="absolute top-2 right-8 bg-surface-container-high/80 text-primary rounded-full p-1 shadow-md backdrop-blur-sm z-10" title={`Lat: ${img.location.lat.toFixed(4)}, Lng: ${img.location.lng.toFixed(4)}`}>
+                 <MapPin size={10} />
                </div>
             )}
 
             {/* Growth Stage Icon */}
             {img.growthStage && (
               <div 
-                className="absolute top-8 left-2 bg-black/80 p-1 rounded-full border border-gray-600 shadow-md backdrop-blur-sm"
+                className="absolute top-8 left-2 bg-surface-container-lowest/80 p-1 rounded-full border border-outline-variant shadow-md backdrop-blur-sm"
                 title={`Stage: ${img.growthStage}`}
               >
                 {getStageIcon(img.growthStage)}

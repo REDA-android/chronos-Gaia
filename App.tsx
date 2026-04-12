@@ -312,11 +312,24 @@ const App: React.FC = () => {
   };
 
   const processCapturedImage = async (dataUrl: string) => {
+    let locationData = undefined;
+    try {
+      if ('geolocation' in navigator) {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, maximumAge: 60000 });
+        });
+        locationData = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      }
+    } catch (e) {
+      console.warn("Geolocation failed:", e);
+    }
+
     const newImage: CapturedImage = { 
       id: Date.now().toString(), 
       uid: user?.uid || 'anonymous',
       timestamp: Date.now(), 
-      dataUrl 
+      dataUrl,
+      location: locationData
     };
     
     if (user) {
@@ -733,6 +746,82 @@ const App: React.FC = () => {
                 </div>
               </section>
 
+              {/* Custom Schedules Section */}
+              <section className="space-y-4">
+                <div className="flex justify-between items-center text-[10px] font-mono uppercase tracking-[0.1em]">
+                  <span className="text-gray-500 flex items-center gap-2 font-bold"><Clock size={12}/> Custom Schedules</span>
+                  <button 
+                    onClick={() => {
+                      const newSchedules = [...(settings.captureSchedules || []), {
+                        id: Date.now().toString(),
+                        type: 'daily' as const,
+                        timeOfDay: '12:00',
+                        isActive: true
+                      }];
+                      setSettings({...settings, captureSchedules: newSchedules});
+                    }}
+                    className="text-primary hover:text-white transition-colors"
+                  >
+                    + ADD
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {(!settings.captureSchedules || settings.captureSchedules.length === 0) && (
+                    <p className="text-[10px] text-gray-600 font-mono italic">No custom schedules. Using default interval.</p>
+                  )}
+                  {settings.captureSchedules?.map(sched => (
+                    <div key={sched.id} className="flex items-center justify-between bg-white/5 p-2 rounded border border-white/10">
+                      <div className="flex items-center gap-2">
+                        <select 
+                          value={sched.type}
+                          onChange={e => {
+                            const newSchedules = settings.captureSchedules!.map(s => s.id === sched.id ? {...s, type: e.target.value as any} : s);
+                            setSettings({...settings, captureSchedules: newSchedules});
+                          }}
+                          className="bg-transparent text-[10px] text-primary outline-none font-bold uppercase"
+                        >
+                          <option value="interval">Interval</option>
+                          <option value="daily">Daily</option>
+                          <option value="weekly">Weekly</option>
+                        </select>
+                        {sched.type === 'daily' && (
+                          <input 
+                            type="time" 
+                            value={sched.timeOfDay || '12:00'}
+                            onChange={e => {
+                              const newSchedules = settings.captureSchedules!.map(s => s.id === sched.id ? {...s, timeOfDay: e.target.value} : s);
+                              setSettings({...settings, captureSchedules: newSchedules});
+                            }}
+                            className="bg-transparent text-[10px] text-white outline-none"
+                          />
+                        )}
+                        {sched.type === 'interval' && (
+                          <input 
+                            type="number" 
+                            value={sched.intervalMinutes || 60}
+                            onChange={e => {
+                              const newSchedules = settings.captureSchedules!.map(s => s.id === sched.id ? {...s, intervalMinutes: parseInt(e.target.value)} : s);
+                              setSettings({...settings, captureSchedules: newSchedules});
+                            }}
+                            className="bg-transparent text-[10px] text-white outline-none w-12"
+                            placeholder="Mins"
+                          />
+                        )}
+                      </div>
+                      <button 
+                        onClick={() => {
+                          const newSchedules = settings.captureSchedules!.filter(s => s.id !== sched.id);
+                          setSettings({...settings, captureSchedules: newSchedules});
+                        }}
+                        className="text-error hover:text-red-400"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
               {/* Min Confidence Section */}
               <section className="space-y-4">
                 <div className="flex justify-between items-center text-[10px] font-mono uppercase tracking-[0.1em]">
@@ -832,6 +921,30 @@ const App: React.FC = () => {
                     <div className={`absolute top-1 w-3 h-3 rounded-full bg-white shadow-sm transition-all duration-300 ${settings.autoAdvance ? 'right-1' : 'left-1'}`}></div>
                   </button>
                 </div>
+              </section>
+
+              {/* Cloud Sync Section */}
+              <section className="space-y-3">
+                <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2 font-bold"><Globe size={12}/> Cloud Sync</label>
+                <div className="grid grid-cols-2 gap-1 p-1 bg-black/40 rounded border border-white/5">
+                  {(['firebase', 'gdrive', 'dropbox', 'none'] as const).map(p => (
+                    <button 
+                      key={p} 
+                      onClick={() => {
+                        if (p === 'gdrive' || p === 'dropbox') {
+                          alert(`${p.toUpperCase()} integration requires OAuth setup. Using Firebase for now.`);
+                          setSettings({...settings, cloudSyncProvider: 'firebase'});
+                        } else {
+                          setSettings({...settings, cloudSyncProvider: p});
+                        }
+                      }} 
+                      className={`py-1.5 text-[9px] rounded uppercase font-bold transition-all ${settings.cloudSyncProvider === p ? 'bg-primary text-[#04110c] shadow-lg shadow-primary/20' : 'text-gray-500 hover:text-white'}`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[9px] text-gray-500 font-mono">Auto-uploads snapshots to selected cloud.</p>
               </section>
 
               {/* Data Management Section */}

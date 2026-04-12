@@ -9,6 +9,26 @@ export interface CapturedImage {
   eventTags?: string[];
   healthStatus?: 'HEALTHY' | 'STRESSED' | 'CRITICAL';
   advice?: string;
+  location?: { lat: number; lng: number; name?: string }; // Geotagging
+}
+
+export interface CaptureSchedule {
+  id: string;
+  type: 'interval' | 'daily' | 'weekly';
+  intervalMinutes?: number;
+  timeOfDay?: string; // HH:mm
+  daysOfWeek?: number[]; // 0-6
+  endDate?: number; // timestamp
+  isActive: boolean;
+}
+
+export interface CareReminder {
+  id: string;
+  title: string;
+  type: 'water' | 'fertilize' | 'prune' | 'custom';
+  frequencyDays: number;
+  nextDue: number; // timestamp
+  isActive: boolean;
 }
 
 export interface UserProfile {
@@ -49,4 +69,7 @@ export interface MonitorSettings {
   autoAdvance: boolean;
   plantType?: string;
   hasCompletedOnboarding?: boolean;
+  cloudSyncProvider?: 'firebase' | 'gdrive' | 'dropbox' | 'none';
+  captureSchedules?: CaptureSchedule[];
+  careReminders?: CareReminder[];
 }
