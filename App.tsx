@@ -534,47 +534,47 @@ const App: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-cyber-900 text-gray-200 font-sans flex flex-col items-center justify-center p-4 sm:p-6 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-cyber-800/20 via-cyber-900 to-black">
+      <div className="min-h-screen bg-background text-on-surface font-body flex flex-col items-center justify-center p-4 sm:p-6 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-surface-container-high/40 via-background to-background">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full bg-black/40 backdrop-blur-xl border border-white/5 p-10 rounded-3xl shadow-2xl text-center space-y-8"
+          className="max-w-md w-full bg-surface-container-high/60 backdrop-blur-3xl p-10 rounded-[32px] shadow-[0_0_60px_rgba(221,255,175,0.03)] text-center space-y-8"
         >
           <div className="flex justify-center">
-            <div className="p-4 bg-primary/10 rounded-full ring-1 ring-primary/30 shadow-[0_0_30px_rgba(192,254,113,0.2)]">
+            <div className="p-4 bg-primary/10 rounded-full ring-1 ring-primary/20 shadow-[0_0_40px_rgba(221,255,175,0.15)]">
               <Leaf className="text-primary" size={48} />
             </div>
           </div>
           <div className="space-y-2">
-            <h1 className="text-3xl font-mono font-bold tracking-tighter">CHRONOS <span className="text-primary">GEMMA</span></h1>
-            <p className="text-gray-500 text-sm font-mono tracking-widest uppercase">Neural Plant Monitoring System</p>
+            <h1 className="text-4xl font-display font-bold tracking-tight">CHRONOS <span className="text-primary">GEMMA</span></h1>
+            <p className="text-on-surface-variant text-sm font-label tracking-widest uppercase">Neural Plant Monitoring System</p>
           </div>
-          <p className="text-gray-400 text-sm leading-relaxed">
+          <p className="text-on-surface-variant text-base leading-relaxed">
             Connect your neural profile to begin monitoring your botanical assets with AI-driven growth analysis and real-time health tracking.
           </p>
           <button 
             onClick={handleLogin}
-            className="w-full py-4 bg-primary text-[#04110c] font-bold rounded-xl hover:bg-primary-dim transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 group"
+            className="w-full py-4 bg-gradient-to-r from-primary to-primary-dim text-surface-container-lowest font-bold rounded-full hover:shadow-[0_0_30px_rgba(221,255,175,0.3)] transition-all flex items-center justify-center gap-3 group"
           >
             <Globe size={20} className="group-hover:rotate-12 transition-transform" />
             CONNECT WITH GOOGLE
           </button>
-          <p className="text-[10px] text-gray-600 font-mono uppercase tracking-widest">Secure Neural Link Required</p>
+          <p className="text-[10px] text-outline font-label uppercase tracking-widest">Secure Neural Link Required</p>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cyber-900 text-gray-200 font-sans flex flex-col selection:bg-cyber-accent selection:text-black relative overflow-hidden">
+    <div className="min-h-screen bg-background text-on-surface font-body flex flex-col selection:bg-primary selection:text-background relative overflow-hidden">
       
       {/* Global Error Toast */}
       {globalError && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[150] animate-in slide-in-from-top duration-300">
-          <div className="bg-red-900/90 backdrop-blur-md border border-red-500/50 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3">
-            <AlertTriangle className="text-red-400" size={20} />
-            <span className="text-sm font-medium">{globalError}</span>
-            <button onClick={() => setGlobalError(null)} className="ml-2 text-white/50 hover:text-white">
+          <div className="bg-error-container/90 backdrop-blur-md border border-error/50 text-on-error-container px-6 py-3 rounded-[24px] shadow-[0_0_40px_rgba(255,113,108,0.2)] flex items-center gap-3">
+            <AlertTriangle className="text-error" size={20} />
+            <span className="text-sm font-medium font-body">{globalError}</span>
+            <button onClick={() => setGlobalError(null)} className="ml-2 text-on-error-container/50 hover:text-on-error-container">
               <X size={16} />
             </button>
           </div>
@@ -584,26 +584,26 @@ const App: React.FC = () => {
       {/* Stealth Mode Overlay - Better Visuals */}
       {stealthMode && (
         <div 
-          className="fixed inset-0 bg-black z-[100] cursor-pointer flex flex-col items-center justify-center animate-in fade-in duration-500"
+          className="fixed inset-0 bg-surface-container-lowest z-[100] cursor-pointer flex flex-col items-center justify-center animate-in fade-in duration-500"
           onClick={() => setStealthMode(false)}
         >
           <button 
             onClick={(e) => { e.stopPropagation(); setStealthMode(false); }}
-            className="absolute top-8 right-8 text-white/20 hover:text-white/60 transition-colors"
+            className="absolute top-8 right-8 text-on-surface/20 hover:text-on-surface/60 transition-colors"
           >
             <X size={32} />
           </button>
           <div className="relative">
-             <div className="absolute inset-0 blur-2xl opacity-20 bg-primary animate-pulse"></div>
+             <div className="absolute inset-0 blur-3xl opacity-20 bg-primary animate-pulse"></div>
              <Leaf className="text-primary relative" size={64} />
           </div>
-          <div className="text-[18vw] sm:text-[120px] font-mono font-thin text-white/5 tracking-tighter tabular-nums leading-none mt-8">
+          <div className="text-[18vw] sm:text-[120px] font-display font-thin text-on-surface/5 tracking-tighter tabular-nums leading-none mt-8">
               {currentTime.getHours().toString().padStart(2, '0')}
               <span className="animate-pulse">:</span>
               {currentTime.getMinutes().toString().padStart(2, '0')}
           </div>
-          <p className="text-primary font-mono text-[10px] tracking-[0.5em] mt-8 uppercase">Gemma Passive Monitoring Active</p>
-          <p className="text-white/5 text-[9px] absolute bottom-12 font-mono">CLICK ANYWHERE TO RECALL SYSTEM</p>
+          <p className="text-primary font-label text-[10px] tracking-[0.5em] mt-8 uppercase">Gemma Passive Monitoring Active</p>
+          <p className="text-on-surface/5 text-[9px] absolute bottom-12 font-label">CLICK ANYWHERE TO RECALL SYSTEM</p>
         </div>
       )}
 
@@ -992,28 +992,28 @@ const App: React.FC = () => {
 
       {/* Bottom Navigation Bar */}
       <nav className="fixed bottom-[max(env(safe-area-inset-bottom),1.5rem)] left-4 right-4 z-50 flex justify-center items-center pointer-events-none">
-        <div className="w-full max-w-md rounded-full border border-white/10 bg-emerald-950/40 backdrop-blur-[80px] shadow-2xl shadow-black/50 glass-edge-glow flex justify-around items-center px-2 py-2 pointer-events-auto">
+        <div className="w-full max-w-md rounded-full bg-surface-container-high/60 backdrop-blur-[40px] shadow-[0_0_40px_rgba(221,255,175,0.05)] flex justify-around items-center px-2 py-2 pointer-events-auto">
           <button 
             onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center justify-center p-3 rounded-full transition-all duration-500 ${activeTab === 'home' ? 'bg-primary/20 text-primary shadow-[0_0_20px_rgba(157,216,80,0.4)] scale-110' : 'text-emerald-100/40 hover:text-[#5adace] hover:scale-110 active:scale-95'}`}
+            className={`flex flex-col items-center justify-center p-3 rounded-full transition-all duration-500 ${activeTab === 'home' ? 'bg-primary/20 text-primary shadow-[0_0_20px_rgba(221,255,175,0.2)] scale-110' : 'text-on-surface-variant hover:text-primary hover:scale-110 active:scale-95'}`}
           >
             <Activity size={24} />
           </button>
           <button 
             onClick={() => setActiveTab('plants')}
-            className={`flex flex-col items-center justify-center p-3 rounded-full transition-all duration-500 ${activeTab === 'plants' ? 'bg-primary/20 text-primary shadow-[0_0_20px_rgba(157,216,80,0.4)] scale-110' : 'text-emerald-100/40 hover:text-[#5adace] hover:scale-110 active:scale-95'}`}
+            className={`flex flex-col items-center justify-center p-3 rounded-full transition-all duration-500 ${activeTab === 'plants' ? 'bg-primary/20 text-primary shadow-[0_0_20px_rgba(221,255,175,0.2)] scale-110' : 'text-on-surface-variant hover:text-primary hover:scale-110 active:scale-95'}`}
           >
             <Leaf size={24} />
           </button>
           <button 
             onClick={() => setActiveTab('scan')}
-            className={`flex flex-col items-center justify-center p-3 rounded-full transition-all duration-500 ${activeTab === 'scan' ? 'bg-primary/20 text-primary shadow-[0_0_20px_rgba(157,216,80,0.4)] scale-110' : 'text-emerald-100/40 hover:text-[#5adace] hover:scale-110 active:scale-95'}`}
+            className={`flex flex-col items-center justify-center p-3 rounded-full transition-all duration-500 ${activeTab === 'scan' ? 'bg-primary/20 text-primary shadow-[0_0_20px_rgba(221,255,175,0.2)] scale-110' : 'text-on-surface-variant hover:text-primary hover:scale-110 active:scale-95'}`}
           >
             <Camera size={24} />
           </button>
           <button 
             onClick={() => setActiveTab('schedule')}
-            className={`flex flex-col items-center justify-center p-3 rounded-full transition-all duration-500 ${activeTab === 'schedule' ? 'bg-primary/20 text-primary shadow-[0_0_20px_rgba(157,216,80,0.4)] scale-110' : 'text-emerald-100/40 hover:text-[#5adace] hover:scale-110 active:scale-95'}`}
+            className={`flex flex-col items-center justify-center p-3 rounded-full transition-all duration-500 ${activeTab === 'schedule' ? 'bg-primary/20 text-primary shadow-[0_0_20px_rgba(221,255,175,0.2)] scale-110' : 'text-on-surface-variant hover:text-primary hover:scale-110 active:scale-95'}`}
           >
             <Terminal size={24} />
           </button>
