@@ -60,24 +60,24 @@ const Timeline: React.FC<TimelineProps> = ({ images, onSelect, onDelete }) => {
             </div>
             
             {/* Action Buttons */}
-            <div className="absolute top-2 left-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+            <div className="absolute top-2 left-2 flex flex-col gap-1 opacity-90 transition-opacity z-20">
               {onDelete && (
                 <button 
-                  onClick={(e) => { e.stopPropagation(); onDelete(img.id); }}
-                  className="bg-error/80 text-on-error p-1 rounded-full hover:bg-error shadow-lg"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(img.id); }}
+                  className="bg-error/90 text-on-error p-1.5 rounded-full hover:bg-error shadow-lg backdrop-blur-sm"
                   title="Delete Frame"
                 >
-                  <Trash2 size={10} />
+                  <Trash2 size={12} />
                 </button>
               )}
               <a 
                 href={img.dataUrl} 
                 download={`gemma-snapshot-${img.id}.jpg`}
                 onClick={(e) => e.stopPropagation()}
-                className="bg-primary/80 text-background p-1 rounded-full hover:bg-primary shadow-lg"
+                className="bg-primary/90 text-background p-1.5 rounded-full hover:bg-primary shadow-lg backdrop-blur-sm"
                 title="Download Frame"
               >
-                <Download size={10} />
+                <Download size={12} />
               </a>
             </div>
 
